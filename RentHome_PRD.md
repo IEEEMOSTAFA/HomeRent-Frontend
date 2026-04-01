@@ -203,7 +203,7 @@ POST /api/auth/sign-up/email
   "name": "Rahim Uddin",
   "email": "rahim@example.com",
   "password": "Pass1234!",
-  "role": "USER"   // "USER" | "OWNER" | "ADMIN"
+  "role": "USER"   // "USER" | "OWNER" | "ADMIN" // in frontend rolo create there come option USER OR OWNER
 }
 ```
 
