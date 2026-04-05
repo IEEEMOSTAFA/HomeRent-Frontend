@@ -5,7 +5,8 @@ import Link from "next/link";
 import { Search, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
-import type { ApiResponse, Category } from "@/types/admin";
+import { ApiResponse, Category } from "@/types,/admin";
+// import type { ApiResponse, Category } from "@/types/admin";
 
 // Skeleton loader for categories
 function CategorySkeleton() {

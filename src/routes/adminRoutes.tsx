@@ -1,5 +1,6 @@
-// src/routes/adminRoutes.tsx
-// Admin navigation routes — Navbar এ use করা হয়
+// src/constants/adminRoutes.tsx
+// Admin navigation routes — based on RentHome PRD
+// API: /api/admin/* | Access: ADMIN role only
 
 export interface RouteItem {
   title: string;
@@ -7,8 +8,51 @@ export interface RouteItem {
 }
 
 export const adminRoutes: RouteItem[] = [
-  { title: "Admin Dashboard", url: "/admin/dashboard" },
-  { title: "Users", url: "/admin/getAlUsers" },
-  { title: "Bookings", url: "/admin/AllBooking" },
-  { title: "Categories", url: "/admin/getCategory" },
+  // ── Overview ──────────────────────────────────────────────
+  { title: "Dashboard",            url: "/admin/dashboard" },         // GET /api/admin/analytics
+
+  // ── User Management ───────────────────────────────────────
+  { title: "All Users",            url: "/admin/users" },             // GET /api/users
+  { title: "Owner Verification",   url: "/admin/owners/unverified" }, // GET /api/admin/owners/unverified
+
+  // ── Property Moderation ───────────────────────────────────
+  { title: "Pending Properties",   url: "/admin/properties/pending" },// GET /api/admin/properties/pending
+  { title: "All Properties",       url: "/admin/properties" },        // via /api/properties (admin view)
+
+  // ── Bookings & Payments ───────────────────────────────────
+  { title: "All Bookings",         url: "/admin/bookings" },          // GET /api/bookings (admin)
+  { title: "Payments",             url: "/admin/payments" },          // GET /api/admin/payments
+
+  // ── Content Moderation ────────────────────────────────────
+  { title: "Flagged Reviews",      url: "/admin/reviews/flagged" },   // GET /api/admin/reviews/flagged
+
+  // ── Blog ──────────────────────────────────────────────────
+  { title: "Blog Posts",           url: "/admin/blog" },              // GET /api/admin/blog
 ];
+
+
+
+
+
+
+
+
+
+
+
+
+
+// // src/routes/adminRoutes.tsx
+// // Admin navigation routes — Navbar এ use করা হয়
+
+// export interface RouteItem {
+//   title: string;
+//   url: string;
+// }
+
+// export const adminRoutes: RouteItem[] = [
+//   { title: "Admin Dashboard", url: "/admin/dashboard" },
+//   { title: "Users", url: "/admin/getAlUsers" },
+//   { title: "Bookings", url: "/admin/AllBooking" },
+//   { title: "Categories", url: "/admin/getCategory" },
+// ];

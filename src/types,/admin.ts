@@ -1,54 +1,287 @@
-// ============= ADMIN TYPES =============
+// ============================================================
+// types/admin.ts
+// RentHome — ADMIN Role (Platform Controller) Types
+// Routes: /api/admin/*, /api/users (admin), /api/reviews (admin)
+// ============================================================
 
-export interface AdminUser {
-  id: string;
-  name: string;
-  email: string;
-  role: "STUDENT" | "TUTOR" | "ADMIN";
-  isActive: boolean;
+import type { AuthUser } from "./auth";
+import type {
+  Property,
+  PropertyStatus,
+  Booking,
+  UserPayment,
+  PaymentStatus,
+  Review,
+  NotificationType,
+} from "./user";
+import type { OwnerProfile } from "./owner";
+
+// ─── USER MANAGEMENT ──────────────────────────────────────────────────────────
+
+/**
+ * AdminUser — Admin-এর users list-এ দেখা যাবে (full details)
+ * GET /api/users (Admin only)
+ */
+export interface AdminUser extends AuthUser {
+  ownerProfile: OwnerProfile | null; // OWNER হলে থাকবে, USER/ADMIN হলে null
+  _count?: {
+    bookings: number;
+    properties: number;
+    reviews: number;
+    payments: number;
+  };
+}
+
+/**
+ * BanUserInput — PATCH /api/users/:id/ban
+ * User ban অথবা unban করতে
+ */
+export interface BanUserInput {
   isBanned: boolean;
-  createdAt: string;
+  reason?: string;              // Optional — কেন ban করা হচ্ছে
 }
 
-export interface AdminBooking {
-  id: string;
-  sessionDate: string;
-  duration: number;
-  status: "CONFIRMED" | "COMPLETED" | "CANCELLED";
-  price: number;
-  notes?: string;
-  student: {
-    id: string;
-    name: string;
-    email: string;
+/**
+ * AdminUsersFilters — GET /api/users query params
+ */
+export interface AdminUsersFilters {
+  role?: "ADMIN" | "OWNER" | "USER";
+  isBanned?: boolean;
+  isActive?: boolean;
+  search?: string;              // name বা email দিয়ে search
+  page?: number;
+  pageSize?: number;
+}
+
+/**
+ * PaginatedAdminUsers — User list-এর paginated response
+ */
+export interface PaginatedAdminUsers {
+  data: AdminUser[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+// ─── PROPERTY MODERATION ──────────────────────────────────────────────────────
+
+/**
+ * PendingProperty — Admin-এর review queue-এ থাকা properties
+ * GET /api/admin/properties/pending
+ */
+export interface PendingProperty extends Property {
+  owner: Pick<AuthUser, "id" | "name" | "email" | "image"> & {
+    ownerProfile: Pick<OwnerProfile, "verified" | "phone" | "nidNumber"> | null;
   };
-  tutor: {
-    id: string;
-    name: string;
-    email: string;
+}
+
+/**
+ * UpdatePropertyStatusInput — PATCH /api/admin/properties/:id/status
+ * Admin property approve অথবা reject করবে
+ */
+export interface UpdatePropertyStatusInput {
+  status: "APPROVED" | "REJECTED";
+  rejectionReason?: string;     // REJECTED হলে required
+}
+
+// ─── OWNER VERIFICATION ───────────────────────────────────────────────────────
+
+/**
+ * UnverifiedOwner — Admin-এর verification queue
+ * GET /api/admin/owners/unverified
+ */
+export interface UnverifiedOwner {
+  id: string;                   // OwnerProfile id
+  userId: string;
+  phone: string | null;
+  nidNumber: string | null;
+  verified: boolean;
+  createdAt: string;
+
+  user: Pick<AuthUser, "id" | "name" | "email" | "image">;
+}
+
+/**
+ * VerifyOwnerInput — PATCH /api/admin/owners/:id/verify
+ * :id হলো OwnerProfile.id (User.id নয়)
+ */
+export interface VerifyOwnerInput {
+  verified: boolean;
+}
+
+// ─── REVIEW MANAGEMENT ────────────────────────────────────────────────────────
+
+/**
+ * FlaggedReview — Owner flag করা reviews-এর list
+ * GET /api/admin/reviews/flagged
+ */
+export interface FlaggedReview extends Review {
+  user: Pick<AuthUser, "id" | "name" | "image">;
+  property: Pick<Property, "id" | "title" | "city" | "area">;
+  booking: Pick<Booking, "id" | "status">;
+}
+
+/**
+ * ReviewVisibilityInput — PATCH /api/admin/reviews/:id/visibility
+ * PATCH /api/admin/reviews/:id/hide (same, alias)
+ */
+export interface ReviewVisibilityInput {
+  isHidden: boolean;
+}
+
+/**
+ * AdminReviewFilters — GET /api/reviews query params (Admin)
+ */
+export interface AdminReviewFilters {
+  isFlagged?: boolean;
+  isVisible?: boolean;
+  propertyId?: string;
+  page?: number;
+  limit?: number;
+}
+
+// ─── PAYMENT MANAGEMENT ───────────────────────────────────────────────────────
+
+/**
+ * AdminPayment — Admin-এর payments list (all users)
+ * GET /api/admin/payments
+ */
+export interface AdminPayment extends UserPayment {
+  user: Pick<AuthUser, "id" | "name" | "email">;
+  booking: Pick<
+    Booking,
+    "id" | "status" | "moveInDate" | "totalAmount" | "propertyId"
+  > & {
+    property: Pick<Property, "id" | "title" | "city" | "area">;
   };
-  createdAt: string;
 }
 
-export interface Category {
+/**
+ * AdminPaymentsFilters — GET /api/admin/payments query params
+ */
+export interface AdminPaymentsFilters {
+  status?: PaymentStatus;
+  page?: number;
+  limit?: number;
+}
+
+/**
+ * RefundPaymentInput — POST /api/admin/payments/:id/refund
+ */
+export interface RefundPaymentInput {
+  reason: string;
+}
+
+// ─── BLOG MANAGEMENT ──────────────────────────────────────────────────────────
+
+/**
+ * BlogPost — Admin-এর blog post
+ * GET /api/admin/blog, GET /api/blog (public published only)
+ */
+export interface BlogPost {
   id: string;
-  name: string;
-  description?: string;
-  icon?: string;
-  isActive: boolean;
+  authorId: string;
+
+  title: string;
+  slug: string;                 // URL-friendly unique identifier
+  excerpt: string;
+  content: string;
+  featuredImage: string | null; // Cloudinary URL
+  tags: string[];
+  isPublished: boolean;
+  publishedAt: string | null;
+
   createdAt: string;
+  updatedAt: string;
+
+  author?: Pick<AuthUser, "id" | "name" | "image">;
 }
 
-export interface DashboardStats {
+/**
+ * CreateBlogPostInput — POST /api/admin/blog
+ */
+export interface CreateBlogPostInput {
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  featuredImage?: string;
+  tags?: string[];
+  isPublished?: boolean;
+}
+
+/**
+ * UpdateBlogPostInput — PATCH /api/admin/blog/:id
+ */
+export type UpdateBlogPostInput = Partial<CreateBlogPostInput>;
+
+/**
+ * PublishBlogPostInput — PATCH /api/admin/blog/:id/publish
+ */
+export interface PublishBlogPostInput {
+  isPublished: boolean;
+}
+
+/**
+ * PublicBlogPost — Public route-এ দেখা যাবে (published only)
+ * GET /api/blog, GET /api/blog/:slug
+ */
+export type PublicBlogPost = Omit<BlogPost, "authorId"> & {
+  author: Pick<AuthUser, "id" | "name" | "image">;
+};
+
+// ─── ANALYTICS DASHBOARD ──────────────────────────────────────────────────────
+
+/**
+ * AdminAnalytics — GET /api/admin/analytics
+ * Admin dashboard-এর overview statistics
+ */
+export interface AdminAnalytics {
+  // Users
   totalUsers: number;
-  totalStudents: number;
-  totalTutors: number;
+  totalOwners: number;
+  totalAdmins: number;
+  bannedUsers: number;
+  newUsersThisMonth: number;
+
+  // Properties
+  totalProperties: number;
+  approvedProperties: number;
+  pendingProperties: number;
+  rejectedProperties: number;
+
+  // Bookings
   totalBookings: number;
-  totalRevenue: number;
+  confirmedBookings: number;
+  pendingBookings: number;
+  cancelledBookings: number;
+
+  // Revenue
+  totalRevenue: number;         // BDT
+  revenueThisMonth: number;
+  totalRefunds: number;
+
+  // Reviews
+  totalReviews: number;
+  flaggedReviews: number;
+  hiddenReviews: number;
+
+  // Owners
+  verifiedOwners: number;
+  unverifiedOwners: number;
 }
 
-export interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message?: string;
+// ─── NOTIFICATION MANAGEMENT ──────────────────────────────────────────────────
+
+/**
+ * SendNotificationInput — Admin system notification পাঠাতে পারবে
+ * (যদি backend এ এই feature add হয়)
+ */
+export interface SendNotificationInput {
+  userId: string;               // কাকে পাঠাবে
+  title: string;
+  message: string;
+  type: NotificationType;
+  actionUrl?: string;
 }
