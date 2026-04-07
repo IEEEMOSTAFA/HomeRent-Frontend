@@ -13,9 +13,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import StatCard from "../_components/StatCard";
-import StatusBadge from "../_components/StatusBadge";
+// import StatCard from "../_components/StatCard";
+// import StatusBadge from "../_components/StatusBadge";
 import { useOwnerStats, useOwnerBookings } from "@/hooks/owner/useOwnerApi";
+import StatCard from "@/components/owner/StatCard";
+import StatusBadge from "@/components/owner/StatusBadge";
 
 export default function OwnerDashboardPage() {
   const { data: stats, isLoading: statsLoading } = useOwnerStats();

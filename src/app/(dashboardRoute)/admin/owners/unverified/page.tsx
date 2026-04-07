@@ -1,9 +1,7 @@
 "use client";
-// src/app/(dashboardRoute)/admin/owners/unverified/page.tsx
-// API: GET /api/admin/owners/unverified | PATCH /api/admin/owners/:id/verify
 
 import { Phone, CreditCard, ShieldCheck, ShieldOff, UserCheck } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "sonner";   // ← Sonner toast
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,15 +19,23 @@ export default function OwnerVerificationPage() {
   const { data: owners, isLoading } = useUnverifiedOwners();
   const { mutate: verifyOwner, isPending } = useVerifyOwner();
 
-  function handleVerify(id: string, verified: boolean) {
+  const handleVerify = (id: string, verified: boolean) => {
     verifyOwner(
       { id, verified },
       {
-        onSuccess: () => toast.success(verified ? "Owner verified!" : "Verification revoked"),
-        onError:   () => toast.error("Action failed"),
+        onSuccess: () => {
+          toast.success(
+            verified 
+              ? "Owner verified successfully!" 
+              : "Verification revoked successfully!"
+          );
+        },
+        onError: (error: any) => {
+          toast.error(error?.message || "Failed to update verification status");
+        },
       }
     );
-  }
+  };
 
   const list = Array.isArray(owners) ? owners : (owners as any)?.data ?? [];
 
@@ -51,7 +57,7 @@ export default function OwnerVerificationPage() {
       {!isLoading && list.length === 0 && (
         <div className="text-center py-20">
           <UserCheck size={40} className="text-muted-foreground/20 mx-auto mb-3" />
-          <p className="text-muted-foreground text-sm">No pending verifications</p>
+          <p className="text-muted-foreground text-sm">No pending verifications found</p>
         </div>
       )}
 
@@ -60,81 +66,73 @@ export default function OwnerVerificationPage() {
           {list.map((owner: any) => (
             <Card key={owner.id} className="shadow-none">
               <CardContent className="p-5">
-                {/* Header */}
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold flex-shrink-0">
-                    {owner.user.name[0]?.toUpperCase()}
+                  <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold">
+                    {owner.user.name?.[0]?.toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm">{owner.user.name}</p>
+                    <p className="font-semibold">{owner.user.name}</p>
                     <p className="text-xs text-muted-foreground truncate">{owner.user.email}</p>
                   </div>
                   {owner.verified ? (
-                    <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-50 text-[10px]">
-                      Verified
-                    </Badge>
+                    <Badge className="bg-emerald-50 text-emerald-700">Verified</Badge>
                   ) : (
-                    <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 text-[10px]">
-                      Pending
-                    </Badge>
+                    <Badge variant="outline" className="text-amber-600">Pending</Badge>
                   )}
                 </div>
 
                 <Separator className="mb-4" />
 
-                {/* Details */}
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Phone size={13} />
-                    <span>{owner.phone ?? "No phone provided"}</span>
+                <div className="space-y-2 mb-5 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <Phone size={14} />
+                    <span>{owner.phone ?? "No phone"}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <CreditCard size={13} />
-                    <span>{owner.nidNumber ?? "No NID provided"}</span>
+                  <div className="flex items-center gap-2">
+                    <CreditCard size={14} />
+                    <span>{owner.nidNumber ?? "No NID"}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Registered: {new Date(owner.createdAt).toLocaleDateString()}
-                  </p>
                 </div>
 
-                {/* Action */}
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button
                       size="sm"
-                      className={`w-full gap-1.5 text-xs ${owner.verified
-                        ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      className={`w-full gap-2 ${owner.verified 
+                        ? "bg-gray-100 text-gray-700 hover:bg-gray-200" 
                         : "bg-emerald-600 hover:bg-emerald-700 text-white"}`}
                     >
-                      {owner.verified
-                        ? <><ShieldOff size={13} /> Revoke Verification</>
-                        : <><ShieldCheck size={13} /> Verify Owner</>}
+                      {owner.verified ? (
+                        <><ShieldOff size={16} /> Revoke Verification</>
+                      ) : (
+                        <><ShieldCheck size={16} /> Verify Owner</>
+                      )}
                     </Button>
                   </AlertDialogTrigger>
+
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>
-                        {owner.verified ? "Revoke" : "Verify"} {owner.user.name}?
+                        {owner.verified ? "Revoke Verification" : "Verify Owner"}?
                       </AlertDialogTitle>
                       <AlertDialogDescription>
                         {owner.verified
-                          ? "This will remove their verified status."
-                          : "This confirms their NID and identity. They will be able to list properties."}
+                          ? `Are you sure you want to revoke verification for ${owner.user.name}?`
+                          : `Confirm identity verification for ${owner.user.name}? They will be able to list properties.`}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction
-                        onClick={() => handleVerify(owner.id, !owner.verified)}
+                        onClick={() => handleVerify(owner.userId, !owner.verified)}
                         disabled={isPending}
-                        className={owner.verified ? "bg-destructive hover:bg-destructive/90" : "bg-emerald-600 hover:bg-emerald-700"}
+                        className={owner.verified ? "bg-destructive hover:bg-destructive/90" : ""}
                       >
                         Confirm
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-
               </CardContent>
             </Card>
           ))}

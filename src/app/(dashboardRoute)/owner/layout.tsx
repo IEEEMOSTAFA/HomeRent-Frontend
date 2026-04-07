@@ -1,7 +1,10 @@
 // src/app/(dashboardRoute)/owner/layout.tsx
 
-import { ownerRoutes } from "@/constants/ownerRoutes";
-import OwnerSidebar from "./_components/OwnerSidebar";
+import OwnerSidebar from "@/components/owner/OwnerSidebar";
+import { ownerRoutes } from "@/routes/ownerRoutes";
+
+// import { ownerRoutes } from "@/constants/ownerRoutes";
+// import OwnerSidebar from "./_components/OwnerSidebar";
 
 export default function OwnerLayout({ children }: { children: React.ReactNode }) {
   return (

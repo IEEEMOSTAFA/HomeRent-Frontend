@@ -1,5 +1,5 @@
-"use client";
 // src/app/(dashboardRoute)/owner/_components/OwnerSidebar.tsx
+"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -19,8 +19,9 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import type { RouteItem } from "@/constants/ownerRoutes";
+
 import { useNotifications } from "@/hooks/owner/useOwnerApi";
+import { RouteItem } from "@/routes/ownerRoutes";
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   Dashboard: <LayoutDashboard size={16} />,
@@ -36,8 +37,14 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 
 export default function OwnerSidebar({ routes }: { routes: RouteItem[] }) {
   const pathname = usePathname();
-  const { data: notifications } = useNotifications();
-  const unread = notifications?.filter((n) => !n.isRead).length ?? 0;
+  
+  // ✅ Fixed: Safe notifications handling
+  const { data: notifications = [], isLoading: notificationsLoading } = useNotifications();
+
+  // ✅ Safe unread count
+  const unread = Array.isArray(notifications) 
+    ? notifications.filter((n) => !n?.isRead).length 
+    : 0;
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-background border-r flex flex-col z-40">
@@ -54,11 +61,12 @@ export default function OwnerSidebar({ routes }: { routes: RouteItem[] }) {
 
       <Separator />
 
-      {/* Nav */}
+      {/* Navigation */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-0.5">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-2 mb-2">
           Navigation
         </p>
+
         {routes.map((route) => {
           const isActive =
             pathname === route.url ||
@@ -79,6 +87,8 @@ export default function OwnerSidebar({ routes }: { routes: RouteItem[] }) {
                   {ICON_MAP[route.title] ?? <Building2 size={16} />}
                 </span>
                 {route.title}
+
+                {/* Notifications Badge - Safe */}
                 {route.title === "Notifications" && unread > 0 && (
                   <Badge className="ml-auto h-4 px-1.5 text-[10px] bg-emerald-600 hover:bg-emerald-600">
                     {unread}
@@ -102,6 +112,13 @@ export default function OwnerSidebar({ routes }: { routes: RouteItem[] }) {
           Sign Out
         </Button>
       </div>
+
+      {/* Optional: Loading indicator */}
+      {notificationsLoading && (
+        <div className="px-5 py-2 text-[10px] text-muted-foreground">
+          Loading notifications...
+        </div>
+      )}
     </aside>
   );
 }

@@ -1,7 +1,5 @@
 "use client";
 // src/app/(dashboardRoute)/admin/properties/[id]/page.tsx
-// API: PATCH /api/admin/properties/:id/status (approve / reject)
-// Data: fetched from GET /api/properties/:id (public endpoint, admin has access)
 
 import { use, useState } from "react";
 import Image from "next/image";
@@ -30,7 +28,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import StatusBadge          from "../../_components/StatusBadge";
+
 import {
   useApproveProperty,
   useAdminDeleteProperty,
@@ -38,8 +36,9 @@ import {
 } from "@/hooks/admin/useAdminApi";
 import { useQuery }         from "@tanstack/react-query";
 import { apiFetch }         from "@/lib/api";
+import StatusBadge from "@/components/Admin/StatusBadge";
 
-// ─── fetch single property via public endpoint ────────────────────────────────
+// ─── fetch single property ───────────────────────────────────────────────────
 function usePropertyDetail(id: string) {
   return useQuery<PendingProperty>({
     queryKey: ["admin", "property", id],
@@ -48,7 +47,7 @@ function usePropertyDetail(id: string) {
   });
 }
 
-// ─── INFO ROW helper ──────────────────────────────────────────────────────────
+// ─── INFO ROW helper ─────────────────────────────────────────────────────────
 function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {
   return (
     <div className="flex items-center justify-between py-2.5 border-b border-border last:border-0">
@@ -61,7 +60,7 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
   );
 }
 
-// ─── PAGE ─────────────────────────────────────────────────────────────────────
+// ─── PAGE ────────────────────────────────────────────────────────────────────
 export default function AdminPropertyDetailPage({
   params,
 }: {
@@ -76,7 +75,7 @@ export default function AdminPropertyDetailPage({
   const [rejectOpen,       setRejectOpen]       = useState(false);
   const [rejectionReason,  setRejectionReason]  = useState("");
 
-  // ── handlers ────────────────────────────────────────────────────────────────
+  // ── handlers ───────────────────────────────────────────────────────────────
   function handleApprove() {
     approveProperty(
       { id, status: "APPROVED" },
@@ -88,7 +87,10 @@ export default function AdminPropertyDetailPage({
   }
 
   function handleRejectSubmit() {
-    if (!rejectionReason.trim()) { toast.error("Provide a reason"); return; }
+    if (!rejectionReason.trim()) { 
+      toast.error("Please provide a reason"); 
+      return; 
+    }
     approveProperty(
       { id, status: "REJECTED", rejectionReason },
       {
@@ -102,7 +104,7 @@ export default function AdminPropertyDetailPage({
     );
   }
 
-  // ── loading ──────────────────────────────────────────────────────────────────
+  // ── loading ────────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div className="max-w-3xl mx-auto space-y-4">
@@ -124,11 +126,11 @@ export default function AdminPropertyDetailPage({
 
   const canAct = p.status === "PENDING";
 
-  // ── render ───────────────────────────────────────────────────────────────────
+  // ── render ─────────────────────────────────────────────────────────────────
   return (
     <div className="max-w-3xl mx-auto space-y-5">
 
-      {/* ── Header ── */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/admin/properties">
@@ -147,7 +149,7 @@ export default function AdminPropertyDetailPage({
           </div>
         </div>
 
-        {/* Delete — always available */}
+        {/* Delete Button */}
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="outline" size="sm" className="gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/5">
@@ -158,14 +160,14 @@ export default function AdminPropertyDetailPage({
             <AlertDialogHeader>
               <AlertDialogTitle>Delete this property?</AlertDialogTitle>
               <AlertDialogDescription>
-                Permanently removes <strong>{p.title}</strong> and all related bookings. This cannot be undone.
+                Permanently removes <strong>{p.title}</strong> and all related bookings. This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => deleteProperty(id, {
-                  onSuccess: () => toast.success("Deleted"),
+                  onSuccess: () => toast.success("Property deleted"),
                   onError:   () => toast.error("Delete failed"),
                 })}
                 disabled={deleting}
@@ -178,18 +180,18 @@ export default function AdminPropertyDetailPage({
         </AlertDialog>
       </div>
 
-      {/* ── Images ── */}
+      {/* Images */}
       {p.images.length > 0 && (
         <div className="grid grid-cols-3 gap-2 rounded-xl overflow-hidden">
           {p.images.slice(0, 3).map((img, i) => (
             <div key={i} className={`relative ${i === 0 ? "col-span-2" : ""} h-52`}>
-              <Image src={img} alt={`img-${i}`} fill className="object-cover" />
+              <Image src={img} alt={`Property image ${i + 1}`} fill className="object-cover" />
             </div>
           ))}
         </div>
       )}
 
-      {/* ── Rejection reason banner ── */}
+      {/* Rejection Reason Banner */}
       {p.status === "REJECTED" && p.rejectionReason && (
         <Card className="shadow-none border-destructive/40 bg-destructive/5">
           <CardContent className="p-4">
@@ -199,7 +201,7 @@ export default function AdminPropertyDetailPage({
         </Card>
       )}
 
-      {/* ── Overview ── */}
+      {/* Overview */}
       <Card className="shadow-none">
         <CardContent className="p-5 space-y-4">
           <div className="flex items-start justify-between">
@@ -208,7 +210,7 @@ export default function AdminPropertyDetailPage({
               {p.address}, {p.area}, {p.city}
             </div>
             <p className="text-2xl font-bold text-emerald-700">
-              ৳{p.rentAmount.toLocaleString()}
+              ${p.rentAmount.toLocaleString()}
               <span className="text-sm font-normal text-muted-foreground">/mo</span>
             </p>
           </div>
@@ -232,7 +234,7 @@ export default function AdminPropertyDetailPage({
         </CardContent>
       </Card>
 
-      {/* ── Description ── */}
+      {/* Description */}
       <Card className="shadow-none">
         <CardHeader className="pb-2"><CardTitle className="text-sm">Description</CardTitle></CardHeader>
         <CardContent>
@@ -240,20 +242,20 @@ export default function AdminPropertyDetailPage({
         </CardContent>
       </Card>
 
-      {/* ── Pricing details ── */}
+      {/* Pricing */}
       <Card className="shadow-none">
         <CardHeader className="pb-2"><CardTitle className="text-sm">Pricing</CardTitle></CardHeader>
         <CardContent>
-          <InfoRow icon={<DollarSign size={14} />} label="Monthly Rent"    value={`৳${p.rentAmount.toLocaleString()}`} />
-          <InfoRow icon={<DollarSign size={14} />} label="Advance Deposit" value={`৳${(p as any).advanceDeposit?.toLocaleString() ?? 0}`} />
-          <InfoRow icon={<DollarSign size={14} />} label="Booking Fee"     value={`৳${(p as any).bookingFee?.toLocaleString() ?? 0}`} />
+          <InfoRow icon={<DollarSign size={14} />} label="Monthly Rent"    value={`$${p.rentAmount.toLocaleString()}`} />
+          <InfoRow icon={<DollarSign size={14} />} label="Advance Deposit" value={`$${(p as any).advanceDeposit?.toLocaleString() ?? 0}`} />
+          <InfoRow icon={<DollarSign size={14} />} label="Booking Fee"     value={`$${(p as any).bookingFee?.toLocaleString() ?? 0}`} />
           {(p as any).isNegotiable && (
             <p className="text-xs text-emerald-600 mt-2">✓ Rent is negotiable</p>
           )}
         </CardContent>
       </Card>
 
-      {/* ── Availability ── */}
+      {/* Availability */}
       <Card className="shadow-none">
         <CardHeader className="pb-2"><CardTitle className="text-sm">Availability</CardTitle></CardHeader>
         <CardContent>
@@ -262,7 +264,7 @@ export default function AdminPropertyDetailPage({
         </CardContent>
       </Card>
 
-      {/* ── Owner info ── */}
+      {/* Owner Info */}
       <Card className="shadow-none">
         <CardHeader className="pb-2"><CardTitle className="text-sm">Owner</CardTitle></CardHeader>
         <CardContent className="p-5">
@@ -293,7 +295,7 @@ export default function AdminPropertyDetailPage({
         </CardContent>
       </Card>
 
-      {/* ── Action buttons (PENDING only) ── */}
+      {/* Action Buttons (PENDING only) */}
       {canAct && (
         <div className="flex gap-3 justify-end pt-2">
           <Button
@@ -313,7 +315,7 @@ export default function AdminPropertyDetailPage({
         </div>
       )}
 
-      {/* ── Reject Dialog ── */}
+      {/* Reject Dialog */}
       <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
         <DialogContent>
           <DialogHeader>

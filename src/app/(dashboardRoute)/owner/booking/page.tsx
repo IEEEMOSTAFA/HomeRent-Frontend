@@ -16,12 +16,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import StatusBadge from "../_components/StatusBadge";
+// import StatusBadge from "../_components/StatusBadge";
 import {
   useOwnerBookings,
   useRespondToBooking,
   type BookingStatus,
 } from "@/hooks/owner/useOwnerApi";
+import StatusBadge from "@/components/owner/StatusBadge";
 
 const TABS: { label: string; value: BookingStatus | "ALL" }[] = [
   { label: "All",       value: "ALL" },
