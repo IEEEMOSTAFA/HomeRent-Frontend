@@ -1,117 +1,174 @@
 "use client";
-// src/app/(dashboardRoute)/user/dashboard/page.tsx
-// API: GET /api/users/me/stats + GET /api/bookings
 
 import Link from "next/link";
-import {
-  CalendarCheck, CreditCard, Star,
-  Bell, CheckCircle, Clock, XCircle, ArrowRight,
+import { 
+  CalendarCheck, 
+  Building2, 
+  Star, 
+  Bell, 
+  DollarSign 
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button }       from "@/components/ui/button";
-import { Separator }    from "@/components/ui/separator";
-import { Skeleton }     from "@/components/ui/skeleton";
-// import StatCard         from "../_components/StatCard";
-// import StatusBadge      from "../_components/StatusBadge";
-import { useUserStats, useMyBookings } from "@/hooks/user/useUserApi";
-import StatCard from "@/components/user/StatCard";
-import StatusBadge from "@/components/user/StatusBadge";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+
+import { 
+  useMyBookings 
+} from "@/hooks/user/useUserApi";
+
+function timeAgo(date: string) {
+  const diff = Date.now() - new Date(date).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
 export default function UserDashboardPage() {
-  const { data: stats,    isLoading: statsLoading }    = useUserStats();
-  const { data: bookings, isLoading: bookingsLoading } = useMyBookings({ page: 1 });
+  const { data: bookingsResponse, isLoading: bookingsLoading } = useMyBookings({ page: 1 });
 
-  const recentBookings = bookings?.data?.slice(0, 5) ?? [];
+  // Safe data handling (Backend wrapper support)
+  const bookings = Array.isArray(bookingsResponse?.data) 
+    ? bookingsResponse.data 
+    : Array.isArray(bookingsResponse) 
+      ? bookingsResponse 
+      : [];
+
+  const recentBookings = bookings.slice(0, 5);
+  const upcomingBookings = bookings
+    .filter((b: any) => ["CONFIRMED", "PENDING"].includes(b.status))
+    .slice(0, 3);
+
+  if (bookingsLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-32 rounded-xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
-
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold">My Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">Welcome back — here is your rental activity</p>
+        <h1 className="text-3xl font-bold tracking-tight">Welcome back!</h1>
+        <p className="text-muted-foreground mt-1">Here's an overview of your rental activity</p>
       </div>
 
-      {/* Stats */}
-      {statsLoading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Total Bookings"   value={stats?.totalBookings     ?? 0} icon={<CalendarCheck size={20} />} color="blue" />
-          <StatCard label="Confirmed"        value={stats?.confirmedBookings ?? 0} icon={<CheckCircle size={20} />}   color="emerald" />
-          <StatCard label="Total Payments"   value={stats?.totalPayments     ?? 0} icon={<CreditCard size={20} />}    color="purple" />
-          <StatCard label="Notifications"    value={stats?.unreadNotifications ?? 0} icon={<Bell size={20} />}        color="amber" sub="unread" />
-        </div>
-      )}
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
+            <CalendarCheck className="h-5 w-5 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{bookings.length}</div>
+            <p className="text-xs text-muted-foreground">All time</p>
+          </CardContent>
+        </Card>
 
-      {/* Secondary stats */}
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          { icon: <Clock size={16} />,        label: "Pending",   val: stats?.pendingBookings   ?? 0, color: "text-amber-600   bg-amber-50" },
-          { icon: <XCircle size={16} />,      label: "Cancelled", val: stats?.cancelledBookings ?? 0, color: "text-red-500     bg-red-50" },
-          { icon: <Star size={16} />,         label: "Reviews",   val: stats?.totalReviews      ?? 0, color: "text-emerald-600 bg-emerald-50" },
-        ].map((s) => (
-          <Card key={s.label} className="shadow-none">
-            <CardContent className="p-5">
-              <div className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md mb-3 ${s.color}`}>
-                {s.icon} {s.label}
-              </div>
-              <p className="text-3xl font-bold">{s.val}</p>
-            </CardContent>
-          </Card>
-        ))}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Upcoming Stays</CardTitle>
+            <Building2 className="h-5 w-5 text-emerald-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{upcomingBookings.length}</div>
+            <p className="text-xs text-muted-foreground">Confirmed bookings</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Notifications</CardTitle>
+            <Bell className="h-5 w-5 text-amber-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">3</div>
+            <p className="text-xs text-muted-foreground">Unread this week</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Reviews Given</CardTitle>
+            <Star className="h-5 w-5 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">12</div>
+            <p className="text-xs text-muted-foreground">This year</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Recent Bookings */}
-      <Card className="shadow-none">
-        <CardHeader className="pb-3 flex-row items-center justify-between space-y-0">
-          <div>
-            <CardTitle className="text-base">Recent Bookings</CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">Your latest rental requests</p>
-          </div>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Recent Bookings</CardTitle>
           <Link href="/user/bookings">
-            <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground">
-              View all <ArrowRight size={13} />
-            </Button>
+            <Button variant="outline" size="sm">View All</Button>
           </Link>
         </CardHeader>
-        <Separator />
-        <CardContent className="p-0">
-          {bookingsLoading && (
-            <div className="p-4 space-y-3">
-              {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}
-            </div>
-          )}
-          {!bookingsLoading && recentBookings.length === 0 && (
-            <div className="py-10 text-center text-sm text-muted-foreground">
-              No bookings yet —{" "}
-              <Link href="/user/properties" className="text-blue-600 hover:underline">browse properties</Link>
-            </div>
-          )}
-          {!bookingsLoading && recentBookings.map((b, idx) => (
-            <div key={b.id}>
-              <Link href={`/user/bookings/${b.id}`}>
-                <div className="px-6 py-4 flex items-center justify-between hover:bg-muted/30 transition-colors cursor-pointer">
-                  <div>
-                    <p className="text-sm font-medium">{b.property.title}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {b.property.area} · Move in: {new Date(b.moveInDate).toLocaleDateString()}
+        <CardContent>
+          {recentBookings.length > 0 ? (
+            <div className="space-y-4">
+              {recentBookings.map((booking: any) => (
+                <div key={booking.id} className="flex justify-between items-center py-3 border-b last:border-0">
+                  <div className="flex-1">
+                    <p className="font-medium">{booking.property?.title || "Property"}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {booking.moveInDate ? new Date(booking.moveInDate).toLocaleDateString() : 'Date not set'}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold">৳{b.totalAmount.toLocaleString()}</span>
-                    <StatusBadge status={b.status} />
-                  </div>
+                  <Badge 
+                    variant={booking.status === "CONFIRMED" ? "default" : "secondary"}
+                  >
+                    {booking.status}
+                  </Badge>
                 </div>
-              </Link>
-              {idx < recentBookings.length - 1 && <Separator />}
+              ))}
             </div>
-          ))}
+          ) : (
+            <p className="text-center text-muted-foreground py-12">No bookings found yet</p>
+          )}
         </CardContent>
       </Card>
 
+      {/* Quick Links */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="text-amber-600" /> Notifications
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Link href="/user/notifications">
+              <Button className="w-full">View All Notifications</Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Browse More Properties</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Link href="/properties">
+              <Button variant="outline" className="w-full">Explore Properties</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

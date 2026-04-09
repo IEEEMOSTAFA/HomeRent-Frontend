@@ -1,54 +1,29 @@
-// src/hooks/owner/useOwnerApi.ts
-// Matches: owner_route.ts — /api/owner/*
+// src/hooks/user/useUserApi.ts
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 
-// ─── TYPES ────────────────────────────────────────────────────────────────────
+// ─── TYPES ───────────────────────────────────────────────────────────────────
 
 export type PropertyType =
-  | "FAMILY_FLAT"
-  | "BACHELOR_ROOM"
-  | "SUBLET"
-  | "HOSTEL"
-  | "OFFICE_SPACE"
-  | "COMMERCIAL";
+  | "FAMILY_FLAT" | "BACHELOR_ROOM" | "SUBLET"
+  | "HOSTEL" | "OFFICE_SPACE" | "COMMERCIAL";
 
-export type PropertyStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type AvailableFor = "FAMILY" | "BACHELOR" | "CORPORATE" | "ANY";
+export type PropertyStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 export type BookingStatus =
-  | "PENDING"
-  | "ACCEPTED"
-  | "PAYMENT_PENDING"
-  | "CONFIRMED"
-  | "DECLINED"
-  | "CANCELLED";
+  | "PENDING" | "ACCEPTED" | "PAYMENT_PENDING"
+  | "CONFIRMED" | "DECLINED" | "CANCELLED";
 
-export interface OwnerProfile {
-  id: string;
-  userId: string;
-  phone: string | null;
-  nidNumber: string | null;
-  verified: boolean;
-  verifiedAt: string | null;
-  totalProperties: number;
-  totalEarnings: number;
-  rating: number;
-  totalReviews: number;
-  createdAt: string;
-  updatedAt: string;
-  user: { id: string; name: string; email: string; image: string | null };
-}
+export type PaymentStatus = "PENDING" | "SUCCESS" | "FAILED" | "REFUNDED";
 
 export interface Property {
   id: string;
-  ownerId: string;
   title: string;
   description: string;
   type: PropertyType;
   status: PropertyStatus;
-  rejectionReason: string | null;
   city: string;
   area: string;
   address: string;
@@ -67,26 +42,47 @@ export interface Property {
   views: number;
   publishedAt: string | null;
   createdAt: string;
+  owner?: {
+    id: string;
+    name: string;
+    image: string | null;
+    ownerProfile: {
+      verified: boolean;
+      rating: number;
+      totalReviews: number;
+      totalProperties: number;
+      phone?: string | null;
+    } | null;
+  };
+}
+
+export interface UserPayment {
+  id: string;
+  bookingId: string;
+  userId: string;
+  amount: number;
+  currency: string;
+  status: PaymentStatus;
+  stripePaymentIntentId: string | null;
+  receiptUrl: string | null;
+  refundAmount: number | null;
+  refundedAt: string | null;
+  createdAt: string;
   updatedAt: string;
 }
 
-export interface CreatePropertyInput {
-  title: string;
-  description: string;
-  type: PropertyType;
-  city: string;
-  area: string;
-  address: string;
-  bedrooms: number;
-  bathrooms: number;
-  size?: number;
-  rentAmount: number;
-  advanceDeposit?: number;
-  bookingFee?: number;
-  isNegotiable?: boolean;
-  availableFrom: string;
-  availableFor?: AvailableFor;
-  images: string[];
+export interface Review {
+  id: string;
+  bookingId: string;
+  propertyId: string;
+  userId: string;
+  rating: number;
+  comment: string | null;
+  isFlagged: boolean;
+  isVisible: boolean;
+  createdAt: string;
+  user?: { id: string; name: string; image: string | null };
+  property?: Pick<Property, "id" | "title" | "images">;
 }
 
 export interface Booking {
@@ -107,35 +103,57 @@ export interface Booking {
   cancelledAt: string | null;
   createdAt: string;
   updatedAt: string;
-  property: Pick<Property, "id" | "title" | "city" | "area" | "images">;
-  user: { id: string; name: string; email: string; image: string | null };
-  payment: { status: string } | null;
+  property: Pick<Property, "id" | "title" | "city" | "area" | "images" | "rentAmount"> & {
+    owner?: Pick<Property["owner"] & object, "id" | "name" | "image">;
+  };
+  user?: { id: string; name: string; email: string; image: string | null };
+  payment: UserPayment | null;
+  review: Review | null;
 }
 
-export interface Review {
-  id: string;
-  bookingId: string;
+export interface CreateBookingInput {
   propertyId: string;
-  userId: string;
-  rating: number;
-  comment: string | null;
-  isFlagged: boolean;
-  isVisible: boolean;
-  createdAt: string;
-  user: { name: string; image: string | null };
-  property: { title: string };
+  moveInDate: string;
+  message?: string;
+  numberOfTenants?: number;
 }
 
-export interface OwnerStats {
-  totalProperties: number;
-  approvedProperties: number;
-  pendingProperties: number;
-  totalBookings: number;
-  pendingBookings: number;
-  confirmedBookings: number;
-  totalEarnings: number;
+export interface CreateReviewInput {
+  bookingId: string;
   rating: number;
+  comment?: string;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  bookingId: string | null;
+  title: string;
+  message: string;
+  type: "booking_update" | "payment" | "review" | "system";
+  isRead: boolean;
+  actionUrl: string | null;
+  createdAt: string;
+}
+
+export interface UserStats {
+  totalBookings: number;
+  confirmedBookings: number;
+  pendingBookings: number;
+  cancelledBookings: number;
+  totalPayments: number;
   totalReviews: number;
+  unreadNotifications: number;
+}
+
+export interface BookingListResponse {
+  data: Booking[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export interface PaginatedResponse<T> {
@@ -143,194 +161,306 @@ export interface PaginatedResponse<T> {
   meta: { total: number; page: number; limit: number; totalPages: number };
 }
 
-export interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  type: string;
-  isRead: boolean;
-  actionUrl: string | null;
-  createdAt: string;
-  booking: { id: string } | null;
+export interface CreatePaymentIntentResponse {
+  clientSecret: string;
+  paymentId: string;
 }
 
-// ─── STATS — GET /api/owner/stats ─────────────────────────────────────────────
-export function useOwnerStats() {
-  return useQuery<OwnerStats>({
-    queryKey: ["owner", "stats"],
-    queryFn: () => apiFetch("/owner/stats"),
+// ─── USER PROFILE ─────────────────────────────────────────────────────────────
+
+export function useCurrentUser() {
+  return useQuery({
+    queryKey: ["user", "me"],
+    queryFn: () => apiFetch<any>("/users/me"),
   });
 }
 
-// ─── PROFILE — GET/PATCH /api/owner/profile ───────────────────────────────────
-export function useOwnerProfile() {
-  return useQuery<OwnerProfile>({
-    queryKey: ["owner", "profile"],
-    queryFn: () => apiFetch("/owner/profile"),
-  });
-}
-
-export function useUpdateOwnerProfile() {
+export function useUpdateProfile() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { phone?: string; nidNumber?: string }) =>
-      apiFetch("/owner/profile", { method: "PATCH", body: JSON.stringify(data) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["owner", "profile"] }),
+    mutationFn: (data: { name?: string; image?: string }) =>
+      apiFetch("/users/me", { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["user", "me"] }),
+  });
+}
+
+export function useUserStats() {
+  return useQuery<UserStats>({
+    queryKey: ["user", "stats"],
+    queryFn: () => apiFetch("/users/me/stats"),
   });
 }
 
 // ─── PROPERTIES ───────────────────────────────────────────────────────────────
-export function useOwnerProperties(params?: { page?: number; status?: PropertyStatus }) {
+
+export function usePublicProperties(params?: {
+  page?: number; city?: string; area?: string;
+  minRent?: number; maxRent?: number; bedrooms?: number;
+  type?: PropertyType; sort?: string;
+}) {
   const q = new URLSearchParams();
-  if (params?.page) q.set("page", String(params.page));
-  if (params?.status) q.set("status", params.status);
+  if (params?.page)     q.set("page",     String(params.page));
+  if (params?.city)     q.set("city",     params.city);
+  if (params?.area)     q.set("area",     params.area);
+  if (params?.minRent)  q.set("minRent",  String(params.minRent));
+  if (params?.maxRent)  q.set("maxRent",  String(params.maxRent));
+  if (params?.bedrooms) q.set("bedrooms", String(params.bedrooms));
+  if (params?.type)     q.set("type",     params.type);
+  if (params?.sort)     q.set("sort",     params.sort);
+
   return useQuery<PaginatedResponse<Property>>({
-    queryKey: ["owner", "properties", params],
-    queryFn: () => apiFetch(`/owner/properties?${q}`),
+    queryKey: ["properties", "public", params],
+    queryFn: () => apiFetch(`/properties?${q}`),
   });
 }
 
-export function useOwnerProperty(id: string) {
+export function usePublicProperty(id: string) {
   return useQuery<Property>({
-    queryKey: ["owner", "properties", id],
-    queryFn: () => apiFetch(`/owner/properties/${id}`),
+    queryKey: ["properties", "public", id],
+    queryFn: () => apiFetch(`/properties/${id}`),
     enabled: !!id,
   });
 }
 
-export function useCreateProperty() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (data: CreatePropertyInput) =>
-      apiFetch<Property>("/owner/properties", { method: "POST", body: JSON.stringify(data) }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["owner", "properties"] });
-      qc.invalidateQueries({ queryKey: ["owner", "stats"] });
-    },
-  });
-}
-
-export function useUpdateProperty() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<CreatePropertyInput> }) =>
-      apiFetch<Property>(`/owner/properties/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-    onSuccess: (_d, { id }) => {
-      qc.invalidateQueries({ queryKey: ["owner", "properties"] });
-      qc.invalidateQueries({ queryKey: ["owner", "properties", id] });
-    },
-  });
-}
-
-export function useDeleteProperty() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) =>
-      apiFetch(`/owner/properties/${id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["owner", "properties"] });
-      qc.invalidateQueries({ queryKey: ["owner", "stats"] });
-    },
-  });
-}
-
 // ─── BOOKINGS ─────────────────────────────────────────────────────────────────
-export function useOwnerBookings(params?: { page?: number; status?: BookingStatus }) {
+
+export function useMyBookings(params?: {
+  page?: number;
+  limit?: number;
+  status?: BookingStatus;
+}) {
+  const q = new URLSearchParams();
+  if (params?.page)   q.set("page",     String(params.page));
+  if (params?.limit)  q.set("pageSize", String(params.limit)); // ✅ backend uses pageSize not limit
+  if (params?.status) q.set("status",   params.status);
+
+  return useQuery<BookingListResponse>({
+    queryKey: ["user", "bookings", params],
+    queryFn: async () => {
+      // ✅ FIX: Backend sendResponse wraps everything inside "data"
+      // Actual response shape: { statusCode, success, message, data: { data: [], pagination: {} } }
+      const response = await apiFetch<any>(`/bookings?${q}`);
+
+      // ✅ Unwrap: response.data হলো আসল payload { data: [], pagination: {} }
+      const payload = response?.data ?? response;
+
+      if (payload?.data && payload?.pagination) return payload;
+
+      // Fallback: plain array হলে
+      if (Array.isArray(payload)) {
+        return {
+          data: payload,
+          pagination: { page: 1, pageSize: payload.length, total: payload.length, totalPages: 1 },
+        };
+      }
+
+      return { data: [], pagination: { page: 1, pageSize: 10, total: 0, totalPages: 0 } };
+    },
+    retry: 1,
+    staleTime: 30000,
+  });
+}
+
+export function useBookingById(id: string) {
+  return useQuery<Booking>({
+    queryKey: ["user", "bookings", id],
+    // ✅ FIX: same unwrap — response.data is the booking object
+    queryFn: () => apiFetch<any>(`/bookings/${id}`).then((res) => res?.data ?? res),
+    enabled: !!id,
+  });
+}
+
+export function useCreateBooking() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: CreateBookingInput) =>
+      apiFetch<Booking>("/bookings", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["user", "bookings"] });
+      qc.invalidateQueries({ queryKey: ["user", "stats"] });
+    },
+  });
+}
+
+export function useCancelBooking() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, cancellationNote }: { id: string; cancellationNote?: string }) =>
+      apiFetch(`/bookings/${id}/cancel`, {
+        method: "PATCH",
+        body: JSON.stringify({ cancellationNote }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["user", "bookings"] });
+      qc.invalidateQueries({ queryKey: ["user", "stats"] });
+    },
+  });
+}
+
+// ─── PAYMENTS ─────────────────────────────────────────────────────────────────
+
+export function useCreatePaymentIntent() {
+  return useMutation({
+    mutationFn: (bookingId: string) =>
+      apiFetch<CreatePaymentIntentResponse>("/payments/create-intent", {
+        method: "POST",
+        body: JSON.stringify({ bookingId }),
+      }),
+  });
+}
+
+export function useConfirmPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ paymentId, stripePaymentIntentId }: { paymentId: string; stripePaymentIntentId: string }) =>
+      apiFetch("/payments/confirm", {
+        method: "POST",
+        body: JSON.stringify({ paymentId, stripePaymentIntentId }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["user", "bookings"] });
+      qc.invalidateQueries({ queryKey: ["user", "stats"] });
+      qc.invalidateQueries({ queryKey: ["user", "payments"] });
+    },
+  });
+}
+
+export function useMyPayments(params?: { page?: number }) {
   const q = new URLSearchParams();
   if (params?.page) q.set("page", String(params.page));
-  if (params?.status) q.set("status", params.status);
-  return useQuery<PaginatedResponse<Booking>>({
-    queryKey: ["owner", "bookings", params],
-    queryFn: () => apiFetch(`/owner/bookings?${q}`),
-  });
-}
-
-export function useRespondToBooking() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: "ACCEPTED" | "DECLINED" }) =>
-      apiFetch(`/owner/bookings/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["owner", "bookings"] });
-      qc.invalidateQueries({ queryKey: ["owner", "stats"] });
-    },
+  return useQuery<PaginatedResponse<UserPayment>>({
+    queryKey: ["user", "payments", params],
+    queryFn: () => apiFetch(`/payments/my-payments?${q}`),
   });
 }
 
 // ─── REVIEWS ──────────────────────────────────────────────────────────────────
-export function usePropertyReviews(propertyId: string) {
+
+export function useMyReviews() {
   return useQuery<PaginatedResponse<Review>>({
-    queryKey: ["owner", "reviews", propertyId],
-    queryFn: () => apiFetch(`/owner/properties/${propertyId}/reviews`),
-    enabled: !!propertyId,
+    queryKey: ["user", "reviews"],
+    queryFn: () => apiFetch("/reviews?userId=me"),
   });
 }
 
-export function useAllOwnerReviews() {
-  return useQuery<PaginatedResponse<Review>>({
-    queryKey: ["owner", "reviews", "all"],
-    queryFn: () => apiFetch(`/reviews?ownerId=me`),
-  });
-}
-
-export function useFlagReview() {
+export function useCreateReview() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      apiFetch(`/owner/reviews/${id}/flag`, { method: "PATCH" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["owner", "reviews"] }),
+    mutationFn: (data: CreateReviewInput) =>
+      apiFetch<Review>("/reviews", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["user", "reviews"] });
+      qc.invalidateQueries({ queryKey: ["user", "bookings"] });
+      qc.invalidateQueries({ queryKey: ["user", "stats"] });
+    },
   });
 }
 
 // ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
-export function useNotifications() {
+
+export function useMyNotifications() {
   return useQuery<Notification[]>({
-    queryKey: ["notifications"],
-    queryFn: () => apiFetch("/notifications"),
-    refetchInterval: 30000,
+    queryKey: ["user", "notifications"],
+    queryFn: async () => {
+      const response = await apiFetch<any>("/notifications");
+      return response?.success && Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response)
+        ? response
+        : [];
+    },
+    retry: 1,
+    staleTime: 30000,
   });
 }
 
-export function useMarkAllRead() {
+
+// ─── NOTIFICATION MUTATIONS (missing — added now) ─────────────────────────────
+
+// PATCH /api/notifications/:id/read
+
+
+
+export function useMarkNotificationRead() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => apiFetch("/notifications/mark-all-read", { method: "PATCH" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
+    mutationFn: (id: string) =>
+      apiFetch(`/notifications/${id}/read`, { method: "PATCH" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["user", "notifications"] }),
   });
 }
 
-// ─── AI TOOLS ─────────────────────────────────────────────────────────────────
-export function useAIDescription() {
+// PATCH /api/notifications/mark-all-read
+export function useMarkAllNotificationsRead() {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: {
-      type: PropertyType;
-      city: string;
-      area: string;
-      bedrooms: number;
-      bathrooms: number;
-      availableFor: AvailableFor;
-    }) =>
-      apiFetch<{ description: string }>("/ai/describe", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
+    mutationFn: () =>
+      apiFetch("/notifications/mark-all-read", { method: "PATCH" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["user", "notifications"] }),
   });
 }
 
-export function useAIPriceHint() {
-  return useMutation({
-    mutationFn: (data: {
-      type: PropertyType;
-      city: string;
-      area: string;
-      bedrooms: number;
-      bathrooms: number;
-      size?: number;
-      availableFor: AvailableFor;
-    }) =>
-      apiFetch<{ suggestedRent: number; minRent: number; maxRent: number }>("/ai/price-hint", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
-  });
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

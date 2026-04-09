@@ -1,5 +1,4 @@
 "use client";
-// src/app/(dashboardRoute)/user/_components/UserSidebar.tsx
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -9,11 +8,10 @@ import {
   Bell, User, LogOut,
 } from "lucide-react";
 
-import { cn }           from "@/lib/utils";
-import { Button }       from "@/components/ui/button";
-import { Badge }        from "@/components/ui/badge";
-import { Separator }    from "@/components/ui/separator";
-// import type { RouteItem } from "@/constants/userRoutes";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { useMyNotifications } from "@/hooks/user/useUserApi";
 import { RouteItem } from "@/routes/userRoutes";
 
@@ -30,8 +28,16 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 
 export default function UserSidebar({ routes }: { routes: RouteItem[] }) {
   const pathname = usePathname();
-  const { data: notifications } = useMyNotifications();
-  const unread = notifications?.filter((n) => !n.isRead).length ?? 0;
+  const { data: notificationsData, isLoading } = useMyNotifications();
+
+  // Safe handling: notificationsData যদি array না হয়, তাহলে খালি array নাও
+  const notifications = Array.isArray(notificationsData) 
+    ? notificationsData 
+    : (notificationsData?.data && Array.isArray(notificationsData.data) 
+        ? notificationsData.data 
+        : []);
+
+  const unread = notifications.filter((n: any) => !n.isRead).length;
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-background border-r flex flex-col z-40">

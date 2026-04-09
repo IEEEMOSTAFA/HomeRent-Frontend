@@ -118,7 +118,7 @@ export default function NewReviewPage() {
         <CardHeader className="pb-3"><CardTitle className="text-base">Review Details</CardTitle></CardHeader>
         <Separator />
         <CardContent className="pt-5">
-          <form onSubmit={handleSubmit(onSubmit )} className="space-y-5">
+          <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-5">
 
             {/* Booking Select */}
             <div className="space-y-1.5">

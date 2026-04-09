@@ -19,12 +19,13 @@ import { Button }             from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator }          from "@/components/ui/separator";
 import { Skeleton }           from "@/components/ui/skeleton";
-import StatusBadge            from "../../_components/StatusBadge";
+// import StatusBadge            from "../../_components/StatusBadge";
 import {
   useMyBooking,
   useCreatePaymentIntent,
   useConfirmPayment,
 } from "@/hooks/user/useUserApi";
+import StatusBadge from "@/components/user/StatusBadge";
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""

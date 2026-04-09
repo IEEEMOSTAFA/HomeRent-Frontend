@@ -1,25 +1,63 @@
 "use client";
 
 import {
-  Users, Building2, CalendarCheck, DollarSign,
-  Star, ShieldCheck, Clock, TrendingUp,
-  CheckCircle, XCircle, Ban,
+  Users,
+  Building2,
+  CalendarCheck,
+  DollarSign,
+  Star,
+  ShieldCheck,
+  Clock,
+  TrendingUp,
+  CheckCircle,
+  XCircle,
+  Ban,
+  RefreshCw,
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { useAdminAnalytics } from "@/hooks/admin/useAdminApi";
 import StatCard from "@/components/Admin/StatCard";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function AdminDashboardPage() {
-  const { data: stats, isLoading, error } = useAdminAnalytics();
+  const queryClient = useQueryClient();
+
+  const { 
+    data: stats, 
+    isLoading, 
+    error, 
+    refetch,
+    isRefetching 
+  } = useAdminAnalytics();
+
+  // Force Refresh Function
+  const handleForceRefresh = async () => {
+    // Invalidate cache first
+    await queryClient.invalidateQueries({ 
+      queryKey: ["admin", "analytics"],
+      exact: true 
+    });
+    
+    // Then refetch
+    await refetch();
+  };
 
   if (error) {
     return (
       <div className="p-10 text-center">
-        <p className="text-red-500">Failed to load dashboard data</p>
+        <p className="text-red-500 text-xl">Failed to load dashboard data</p>
         <p className="text-sm text-muted-foreground mt-2">{error.message}</p>
+        <Button 
+          onClick={handleForceRefresh} 
+          className="mt-4"
+          variant="outline"
+        >
+          Try Again
+        </Button>
       </div>
     );
   }
@@ -38,11 +76,24 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Platform overview and key metrics • Last updated: Just now
-        </p>
+      {/* Header with Refresh Button */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Real-time overview of RentHome platform
+          </p>
+        </div>
+
+        <Button 
+          onClick={handleForceRefresh} 
+          variant="outline" 
+          size="sm"
+          disabled={isRefetching}
+        >
+          <RefreshCw className={`mr-2 h-4 w-4 ${isRefetching ? "animate-spin" : ""}`} />
+          {isRefetching ? "Refreshing..." : "Refresh Now"}
+        </Button>
       </div>
 
       {/* Users Section */}
@@ -144,9 +195,9 @@ export default function AdminDashboardPage() {
           <Separator />
           <CardContent className="pt-4 space-y-3">
             {[
-              { label: "Total Revenue", val: `$${ (stats?.totalRevenue ?? 0).toLocaleString() }` },
-              { label: "This Month",    val: `$${ (stats?.revenueThisMonth ?? 0).toLocaleString() }` },
-              { label: "Total Refunds", val: `$${ (stats?.totalRefunds ?? 0).toLocaleString() }` },
+              { label: "Total Revenue", val: `৳ ${(stats?.totalRevenue ?? 0).toLocaleString()}` },
+              { label: "This Month",    val: `৳ ${(stats?.revenueThisMonth ?? 0).toLocaleString()}` },
+              { label: "Total Refunds", val: `৳ ${(stats?.totalRefunds ?? 0).toLocaleString()}` },
             ].map((r) => (
               <div key={r.label} className="flex justify-between">
                 <span className="text-sm text-muted-foreground">{r.label}</span>
