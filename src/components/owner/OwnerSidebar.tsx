@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
-import { useNotifications } from "@/hooks/owner/useOwnerApi";
+import { useMyNotifications } from "@/hooks/owner/useOwnerApi";
 import { RouteItem } from "@/routes/ownerRoutes";
 
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -37,18 +37,18 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 
 export default function OwnerSidebar({ routes }: { routes: RouteItem[] }) {
   const pathname = usePathname();
-  
-  // ✅ Fixed: Safe notifications handling
-  const { data: notifications = [], isLoading: notificationsLoading } = useNotifications();
 
-  // ✅ Safe unread count
-  const unread = Array.isArray(notifications) 
-    ? notifications.filter((n) => !n?.isRead).length 
+  // ✅ Correct hook usage with proper destructuring
+  const { data: notifications = [], isLoading: notificationsLoading } = useMyNotifications();
+
+  // ✅ Safe unread count calculation
+  const unreadCount = Array.isArray(notifications)
+    ? notifications.filter((n) => !n?.isRead).length
     : 0;
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-background border-r flex flex-col z-40">
-      {/* Brand */}
+      {/* Brand Header */}
       <div className="px-5 py-4 flex items-center gap-2.5">
         <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center flex-shrink-0">
           <Building2 size={15} className="text-white" />
@@ -63,7 +63,7 @@ export default function OwnerSidebar({ routes }: { routes: RouteItem[] }) {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-0.5">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-2 mb-2">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-2 mb-3">
           Navigation
         </p>
 
@@ -88,10 +88,12 @@ export default function OwnerSidebar({ routes }: { routes: RouteItem[] }) {
                 </span>
                 {route.title}
 
-                {/* Notifications Badge - Safe */}
-                {route.title === "Notifications" && unread > 0 && (
-                  <Badge className="ml-auto h-4 px-1.5 text-[10px] bg-emerald-600 hover:bg-emerald-600">
-                    {unread}
+                {/* Notifications Badge */}
+                {route.title === "Notifications" && unreadCount > 0 && (
+                  <Badge
+                    className="ml-auto h-4 px-1.5 text-[10px] bg-emerald-600 hover:bg-emerald-600 font-medium"
+                  >
+                    {unreadCount}
                   </Badge>
                 )}
               </Button>
@@ -102,7 +104,7 @@ export default function OwnerSidebar({ routes }: { routes: RouteItem[] }) {
 
       <Separator />
 
-      {/* Sign out */}
+      {/* Sign Out */}
       <div className="px-3 py-3">
         <Button
           variant="ghost"
@@ -113,9 +115,9 @@ export default function OwnerSidebar({ routes }: { routes: RouteItem[] }) {
         </Button>
       </div>
 
-      {/* Optional: Loading indicator */}
+      {/* Loading Indicator */}
       {notificationsLoading && (
-        <div className="px-5 py-2 text-[10px] text-muted-foreground">
+        <div className="px-5 py-2 text-[10px] text-muted-foreground text-center">
           Loading notifications...
         </div>
       )}

@@ -4,11 +4,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { userRoutes } from "@/constants/userRoutes";
+// import { userRoutes } from "@/constants/userRoutes";
 import { Home, LogOut } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { userRoutes } from "@/routes/userRoutes";
 
 interface UserSidebarProps {
   user: {
@@ -40,7 +41,7 @@ export function UserSidebar({ user }: UserSidebarProps) {
       {/* Nav */}
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {userRoutes.map((route) => {
-          const Icon = route.icon;
+          const Icon = route.icon  ;
           const isActive = pathname === route.url || pathname.startsWith(route.url + "/");
           return (
             <Link
