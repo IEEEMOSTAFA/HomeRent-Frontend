@@ -267,7 +267,18 @@ export function useMyBookings(params?: {
 
   return useQuery<BookingListResponse>({
     queryKey: ["user", "bookings", params],
-    queryFn: () => apiFetch(`/bookings?${q}`).then(unwrap<BookingListResponse>),
+    // queryFn: () => apiFetch(`/bookings?${q}`).then(unwrap<BookingListResponse>),
+  queryFn: () =>
+  apiFetch<any>(`/bookings?${q}`).then((res) => {
+    // Backend: { success, data: [...], meta/pagination: {} }
+    // অথবা:   { success, data: { data: [...], pagination: {} } }
+    const raw = res?.data;
+    const isNested = raw && !Array.isArray(raw) && Array.isArray(raw?.data);
+    return {
+      data: isNested ? raw.data : (Array.isArray(raw) ? raw : []),
+      pagination: isNested ? raw.pagination : (res?.pagination ?? res?.meta ?? {}),
+    };
+  }),
     retry: 1,
     staleTime: 30000,
   });
@@ -366,7 +377,9 @@ export function useMyPayments(params?: { page?: number }) {
 export function useMyReviews() {
   return useQuery<PaginatedResponse<Review>>({
     queryKey: ["user", "reviews"],
-    queryFn: () => apiFetch("/reviews?userId=me").then(unwrap<PaginatedResponse<Review>>),
+    // queryFn: () => apiFetch("/reviews?userId=me").then(unwrap<PaginatedResponse<Review>>),
+    // queryFn: () => apiFetch("/reviews/my").then(unwrap<PaginatedResponse<Review>>),
+    queryFn: () => apiFetch("/reviews/my").then(unwrap<PaginatedResponse<Review>>),
   });
 }
 

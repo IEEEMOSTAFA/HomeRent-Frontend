@@ -3,19 +3,19 @@
 // API: POST /api/reviews (only after CONFIRMED booking, one per booking)
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState }                   from "react";
-import Link                           from "next/link";
-import { ArrowLeft, Star, Loader2 }   from "lucide-react";
-import { toast }                      from "sonner";
-import { useForm }                    from "react-hook-form";
-import { zodResolver }                from "@hookform/resolvers/zod";
-import { z }                          from "zod";
+import { useState } from "react";
+import Link from "next/link";
+import { ArrowLeft, Star, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
-import { Button }             from "@/components/ui/button";
-import { Textarea }           from "@/components/ui/textarea";
-import { Label }              from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator }          from "@/components/ui/separator";
+import { Separator } from "@/components/ui/separator";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -23,8 +23,8 @@ import { useCreateReview, useMyBookings } from "@/hooks/user/useUserApi";
 
 const schema = z.object({
   bookingId: z.string().min(1, "Select a booking"),
-  rating:    z.coerce.number().min(1).max(5),
-  comment:   z.string().optional(),
+  rating: z.coerce.number().min(1).max(5),
+  comment: z.string().optional(),
 });
 type FormValues = z.infer<typeof schema>;
 
@@ -59,14 +59,19 @@ function StarPicker({ value, onChange }: { value: number; onChange: (v: number) 
 }
 
 export default function NewReviewPage() {
-  const router       = useRouter();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const preBookingId = searchParams.get("bookingId") ?? "";
 
   // Only CONFIRMED bookings without existing reviews
+  // const { data: bookingsData } = useMyBookings({ status: "CONFIRMED" });
+  // const confirmedBookings = (bookingsData?.data ?? []).filter((b) => !b.review);
+
+
+
+  // page.tsx এ
   const { data: bookingsData } = useMyBookings({ status: "CONFIRMED" });
   const confirmedBookings = (bookingsData?.data ?? []).filter((b) => !b.review);
-
   const { mutate: createReview, isPending } = useCreateReview();
 
   const {
@@ -79,8 +84,8 @@ export default function NewReviewPage() {
     resolver: zodResolver(schema),
     defaultValues: {
       bookingId: preBookingId,
-      rating:    0,
-      comment:   "",
+      rating: 0,
+      comment: "",
     },
   });
 
