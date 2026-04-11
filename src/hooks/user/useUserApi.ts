@@ -336,15 +336,6 @@ export function useCreatePaymentIntent() {
 
 
 
-// export function useCreatePaymentIntent() {
-//   return useMutation({
-//     mutationFn: (bookingId: string) =>
-//       apiFetch<CreatePaymentIntentResponse>("/payments/create-intent", {
-//         method: "POST",
-//         body: JSON.stringify({ bookingId }),
-//       }),
-//   });
-// }
 
 export function useConfirmPayment() {
   const qc = useQueryClient();
@@ -398,12 +389,62 @@ export function useCreateReview() {
 
 // ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
 
+// export function useMyNotifications() {
+//   return useQuery<Notification[]>({
+//     queryKey: ["user", "notifications"],
+//     queryFn: () => apiFetch("/notifications").then(unwrap<Notification[]>),
+//     retry: 1,
+//     staleTime: 30000,
+//   });
+// }
+
+
 export function useMyNotifications() {
   return useQuery<Notification[]>({
     queryKey: ["user", "notifications"],
-    queryFn: () => apiFetch("/notifications").then(unwrap<Notification[]>),
+    queryFn: async () => {
+      const res = await apiFetch<any>("/notifications");
+
+      // Backend returns: { success, data: { notifications: [], total, unreadCount } }
+      if (Array.isArray(res?.data?.notifications)) return res.data.notifications;
+
+      // fallback
+      if (Array.isArray(res?.notifications)) return res.notifications;
+      if (Array.isArray(res?.data)) return res.data;
+      if (Array.isArray(res)) return res;
+
+      return [];
+    },
     retry: 1,
     staleTime: 30000,
+  });
+}
+
+
+
+
+
+export function useMarkNotificationRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch(`/notifications/${id}/read`, { method: "PATCH" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["user", "notifications"] });
+      qc.invalidateQueries({ queryKey: ["user", "stats"] });
+    },
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiFetch("/notifications/mark-all-read", { method: "PATCH" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["user", "notifications"] });
+      qc.invalidateQueries({ queryKey: ["user", "stats"] });
+    },
   });
 }
 

@@ -1,323 +1,861 @@
-// src/app/(dashboardRoute)/owner/properties/new/page.tsx
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+// ✅ FILE PATH: src/app/(dashboardRoute)/owner/properties/page.tsx
+
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2 } from "lucide-react";
-import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { motion, AnimatePresence, useSpring, useMotionValue } from "framer-motion";
+import { Player } from "@lottiefiles/react-lottie-player";
+import {
+  Plus, Pencil, Eye, Trash2, Loader2,
+  MapPin, BedDouble, Bath, Ruler, Home,
+  CheckCircle2, Clock, XCircle, ChevronRight,
+  Sparkles, TrendingUp,
+} from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { Button }   from "@/components/ui/button";
+import { Badge }    from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
-import { useCreateProperty, type CreatePropertyInput } from "@/hooks/owner/useOwnerApi";
-import ImageUploader from "@/components/owner/ImageUploader";
+import {
+  useOwnerProperties,
+  useDeleteProperty,
+  type PropertyStatus,
+  type Property,
+} from "@/hooks/owner/useOwnerApi";
 
-// Validation Schema
-const propertySchema = z.object({
-  title: z.string().min(5, "Title must be at least 5 characters"),
-  description: z.string().min(20, "Description must be at least 20 characters"),
-  type: z.enum(["FAMILY_FLAT", "BACHELOR_ROOM", "SUBLET", "HOSTEL", "OFFICE_SPACE", "COMMERCIAL"]),
-  city: z.string().min(2, "City name is required"),
-  area: z.string().min(2, "Area name is required"),
-  address: z.string().min(5, "Full address is required"),
-  bedrooms: z.coerce.number().min(0),
-  bathrooms: z.coerce.number().min(0),
-  size: z.coerce.number().optional(),
-  rentAmount: z.coerce.number().min(1, "Rent amount is required"),
-  advanceDeposit: z.coerce.number().min(0),
-  bookingFee: z.coerce.number().min(0),
-  isNegotiable: z.boolean().default(false),
-  availableFrom: z.string().min(1, "Date is required"),
-  availableFor: z.enum(["FAMILY", "BACHELOR", "CORPORATE", "ANY"]),
-});
+// ── Types ──────────────────────────────────────────────────────────────────────
+type TabValue = PropertyStatus | "ALL";
 
-type PropertyFormData = z.infer<typeof propertySchema>;
+// ── Constants ─────────────────────────────────────────────────────────────────
+const TABS: { label: string; value: TabValue; icon: React.ReactNode; color: string }[] = [
+  { label: "All",      value: "ALL",      icon: <Home size={13} />,         color: "emerald" },
+  { label: "Approved", value: "APPROVED", icon: <CheckCircle2 size={13} />, color: "emerald" },
+  { label: "Pending",  value: "PENDING",  icon: <Clock size={13} />,        color: "amber"   },
+  { label: "Rejected", value: "REJECTED", icon: <XCircle size={13} />,      color: "red"     },
+];
 
-export default function CreatePropertyPage() {
-  const router = useRouter();
-  const { mutateAsync: createProperty, isPending } = useCreateProperty();
+const STATUS_CONFIG: Record<PropertyStatus, {
+  label: string;
+  bg: string;
+  text: string;
+  border: string;
+  dot: string;
+}> = {
+  APPROVED: {
+    label: "Approved",
+    bg: "bg-emerald-50",
+    text: "text-emerald-700",
+    border: "border-emerald-200",
+    dot: "bg-emerald-500",
+  },
+  PENDING: {
+    label: "Pending",
+    bg: "bg-amber-50",
+    text: "text-amber-700",
+    border: "border-amber-200",
+    dot: "bg-amber-400",
+  },
+  REJECTED: {
+    label: "Rejected",
+    bg: "bg-red-50",
+    text: "text-red-700",
+    border: "border-red-200",
+    dot: "bg-red-500",
+  },
+};
 
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
+// ── Animation Variants ─────────────────────────────────────────────────────────
+const containerVariants = {
+  hidden: {},
+  show: {
+    transition: { staggerChildren: 0.08 },
+  },
+};
 
-  const {
-    register,
-    handleSubmit,
-    control,
-    formState: { errors },
-  } = useForm<PropertyFormData>({
-    resolver: zodResolver(propertySchema),
-    defaultValues: {
-      type: "FAMILY_FLAT",
-      availableFor: "ANY",
-      isNegotiable: false,
-      bedrooms: 1,
-      bathrooms: 1,
-      advanceDeposit: 0,
-      bookingFee: 0,
-      size: undefined,
-    },
-    mode: "onChange",
-  });
+const cardVariants = {
+  hidden: { opacity: 0, y: 24, scale: 0.97 },
+  show:   { opacity: 1, y: 0,  scale: 1,   transition: { type: "spring", stiffness: 260, damping: 22 } },
+  exit:   { opacity: 0, x: -40, scale: 0.95, transition: { duration: 0.2 } },
+};
 
-  const onSubmit = async (data: PropertyFormData) => {
-    if (imageUrls.length === 0) {
-      toast.error("Please upload at least one image");
-      return;
-    }
+const tabIndicatorVariants = {
+  hidden: { scaleX: 0 },
+  show:   { scaleX: 1, transition: { type: "spring", stiffness: 400, damping: 30 } },
+};
 
+// ── Animated Counter ───────────────────────────────────────────────────────────
+function AnimatedCount({ value }: { value: number }) {
+  const motionVal = useMotionValue(0);
+  const spring = useSpring(motionVal, { stiffness: 200, damping: 20 });
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    motionVal.set(value);
+  }, [value, motionVal]);
+
+  useEffect(() => {
+    return spring.on("change", (v) => setDisplay(Math.round(v)));
+  }, [spring]);
+
+  return <span>{display}</span>;
+}
+
+// ── Status Badge ───────────────────────────────────────────────────────────────
+function StatusBadge({ status }: { status: PropertyStatus }) {
+  const cfg = STATUS_CONFIG[status];
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} animate-pulse`} />
+      {cfg.label}
+    </span>
+  );
+}
+
+// ── Property Card ──────────────────────────────────────────────────────────────
+function PropertyCard({
+  property,
+  onDelete,
+  deleting,
+  index,
+}: {
+  property: Property;
+  onDelete: (id: string) => void;
+  deleting: boolean;
+  index: number;
+}) {
+  const image = property.images?.[0] ?? "/placeholder.png";
+  const [imgError, setImgError] = useState(false);
+
+  return (
+    <motion.div
+      variants={cardVariants}
+      layout
+      whileHover={{ y: -3, transition: { type: "spring", stiffness: 400, damping: 25 } }}
+      className="group relative bg-white rounded-2xl border border-emerald-100 overflow-hidden shadow-sm hover:shadow-lg hover:shadow-emerald-100/60 transition-shadow duration-300"
+    >
+      {/* Left accent bar */}
+      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400 to-emerald-600 rounded-l-2xl" />
+
+      <div className="flex flex-col sm:flex-row gap-0 pl-1">
+        {/* Image */}
+        <div className="relative w-full sm:w-44 h-36 sm:h-auto flex-shrink-0 overflow-hidden bg-emerald-50">
+          {!imgError ? (
+            <motion.img
+              src={image}
+              alt={property.title}
+              className="w-full h-full object-cover"
+              onError={() => setImgError(true)}
+              whileHover={{ scale: 1.05 }}
+              transition={{ duration: 0.4 }}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Home size={32} className="text-emerald-200" />
+            </div>
+          )}
+          {/* Overlay gradient */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent sm:bg-gradient-to-r" />
+
+          {/* Type badge */}
+          <span className="absolute bottom-2 left-2 text-[10px] font-semibold bg-black/60 text-white px-2 py-0.5 rounded-full backdrop-blur-sm">
+            {property.type.replace(/_/g, " ")}
+          </span>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0 p-4 flex flex-col justify-between gap-3">
+          <div className="space-y-1.5">
+            {/* Title + Status */}
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-bold text-gray-900 text-sm leading-snug line-clamp-1 group-hover:text-emerald-700 transition-colors">
+                {property.title}
+              </h3>
+              <StatusBadge status={property.status} />
+            </div>
+
+            {/* Location */}
+            <div className="flex items-center gap-1 text-xs text-gray-400">
+              <MapPin size={11} className="text-emerald-400 flex-shrink-0" />
+              <span className="truncate">{property.area}, {property.city}</span>
+            </div>
+
+            {/* Stats row */}
+            <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+              <span className="flex items-center gap-1">
+                <BedDouble size={11} className="text-emerald-400" />
+                {property.bedrooms} bed
+              </span>
+              <span className="flex items-center gap-1">
+                <Bath size={11} className="text-emerald-400" />
+                {property.bathrooms} bath
+              </span>
+              {property.size && (
+                <span className="flex items-center gap-1">
+                  <Ruler size={11} className="text-emerald-400" />
+                  {property.size} sqft
+                </span>
+              )}
+              <span className="text-[10px] text-gray-400 ml-auto">
+                For: <span className="font-medium text-gray-600">{property.availableFor}</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Bottom row: Price + Actions */}
+          <div className="flex items-center justify-between gap-3 pt-1 border-t border-gray-50">
+            {/* Price */}
+            <div className="flex items-baseline gap-0.5">
+              <span className="text-lg font-black text-emerald-600 leading-none">
+                ৳{property.rentAmount.toLocaleString()}
+              </span>
+              <span className="text-[10px] text-gray-400 font-medium">/mo</span>
+            </div>
+
+            {/* Actions */}
+            <TooltipProvider delayDuration={200}>
+              <div className="flex items-center gap-1.5">
+                {/* View */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link href={`/owner/properties/${property.id}`}>
+                      <motion.button
+                        whileTap={{ scale: 0.93 }}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-colors"
+                      >
+                        <Eye size={11} /> View
+                      </motion.button>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">View details</TooltipContent>
+                </Tooltip>
+
+                {/* Edit */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link href={`/owner/properties/${property.id}/edit`}>
+                      <motion.button
+                        whileTap={{ scale: 0.93 }}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 hover:border-emerald-300 transition-colors"
+                      >
+                        <Pencil size={11} /> Edit
+                      </motion.button>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">Edit property</TooltipContent>
+                </Tooltip>
+
+                {/* Delete */}
+                <AlertDialog>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <AlertDialogTrigger asChild>
+                        <motion.button
+                          whileTap={{ scale: 0.93 }}
+                          className="flex items-center justify-center w-[30px] h-[30px] rounded-lg border border-red-100 text-red-400 hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-colors"
+                        >
+                          {deleting ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                        </motion.button>
+                      </AlertDialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">Delete</TooltipContent>
+                  </Tooltip>
+                  <AlertDialogContent className="rounded-2xl">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="text-gray-900">Delete this property?</AlertDialogTitle>
+                      <AlertDialogDescription className="text-gray-500">
+                        <strong className="text-gray-700">{property.title}</strong> permanently delete হয়ে যাবে। এই কাজ undo করা যাবে না।
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => onDelete(property.id)}
+                        disabled={deleting}
+                        className="rounded-xl bg-red-500 hover:bg-red-600 text-white"
+                      >
+                        {deleting ? "Deleting…" : "Yes, Delete"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </TooltipProvider>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Loading Skeletons ──────────────────────────────────────────────────────────
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-3">
+      {[1, 2, 3].map((i) => (
+        <motion.div
+          key={i}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: i * 0.07 }}
+          className="flex gap-0 bg-white rounded-2xl border border-emerald-100 overflow-hidden h-36"
+        >
+          <div className="w-1 bg-emerald-100 flex-shrink-0" />
+          <Skeleton className="w-44 h-full rounded-none" />
+          <div className="flex-1 p-4 space-y-3">
+            <div className="flex justify-between">
+              <Skeleton className="h-4 w-2/5" />
+              <Skeleton className="h-5 w-20 rounded-full" />
+            </div>
+            <Skeleton className="h-3 w-1/3" />
+            <Skeleton className="h-3 w-1/2" />
+            <div className="flex justify-between items-center pt-2 border-t border-gray-50">
+              <Skeleton className="h-5 w-24" />
+              <div className="flex gap-1.5">
+                <Skeleton className="h-[30px] w-16 rounded-lg" />
+                <Skeleton className="h-[30px] w-16 rounded-lg" />
+                <Skeleton className="h-[30px] w-[30px] rounded-lg" />
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
+// ── Empty State ────────────────────────────────────────────────────────────────
+function EmptyState({ tab }: { tab: TabValue }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ type: "spring", stiffness: 200, damping: 20 }}
+      className="flex flex-col items-center justify-center py-20 text-center"
+    >
+      <Player
+        autoplay
+        loop
+        src="https://lottie.host/4db68bbd-246e-4e78-9b82-3f93d4c0e6c3/8HVSanSZMj.json"
+        style={{ height: 160, width: 160 }}
+      />
+      <h3 className="text-base font-bold text-gray-800 mt-2 mb-1">No properties found</h3>
+      <p className="text-sm text-gray-400 max-w-xs leading-relaxed">
+        {tab === "ALL"
+          ? "You haven't listed any properties yet. Add your first one to get started."
+          : `You have no ${tab.toLowerCase()} properties right now.`}
+      </p>
+      {tab === "ALL" && (
+        <motion.div
+          className="mt-6"
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+        >
+          <Link href="/owner/properties/new">
+            <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-5 shadow-md shadow-emerald-200">
+              <Plus size={15} /> Add Your First Property
+            </Button>
+          </Link>
+        </motion.div>
+      )}
+    </motion.div>
+  );
+}
+
+// ── Stat Card ─────────────────────────────────────────────────────────────────
+function StatCard({
+  label,
+  value,
+  icon,
+  color,
+}: {
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+  color: string;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`flex items-center gap-3 bg-white rounded-xl border px-4 py-3 border-${color}-100 shadow-sm`}
+    >
+      <div className={`p-2 rounded-lg bg-${color}-50 text-${color}-600`}>{icon}</div>
+      <div>
+        <p className="text-[11px] text-gray-400 font-medium leading-none mb-0.5">{label}</p>
+        <p className={`text-lg font-black text-${color}-600 leading-none`}>
+          <AnimatedCount value={value} />
+        </p>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Main Page ──────────────────────────────────────────────────────────────────
+export default function OwnerPropertiesPage() {
+  const [activeTab, setActiveTab] = useState<TabValue>("ALL");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const { data, isLoading, isError, refetch } = useOwnerProperties(
+    activeTab === "ALL" ? undefined : { status: activeTab as PropertyStatus }
+  );
+  const { mutateAsync: deleteProperty } = useDeleteProperty();
+
+  const properties: Property[] = data?.data ?? [];
+  const total = data?.meta?.total ?? properties.length;
+
+  // compute counts per status for stat cards
+  const { data: allData } = useOwnerProperties(undefined);
+  const allProperties: Property[] = allData?.data ?? [];
+  const approvedCount = allProperties.filter((p) => p.status === "APPROVED").length;
+  const pendingCount  = allProperties.filter((p) => p.status === "PENDING").length;
+  const rejectedCount = allProperties.filter((p) => p.status === "REJECTED").length;
+
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
     try {
-      const payload: CreatePropertyInput = {
-        ...data,
-        images: imageUrls,
-      };
-
-      await createProperty(payload);
-      toast.success("Property created successfully! Awaiting admin approval...");
-      router.push("/owner/properties");
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to create property");
+      await deleteProperty(id);
+      toast.success("Property deleted successfully");
+    } catch {
+      toast.error("Failed to delete property");
+    } finally {
+      setDeletingId(null);
     }
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 pb-12">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link href="/owner/Properties">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft size={18} />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold">Add New Property</h1>
-          <p className="text-muted-foreground">Property will go live after admin approval</p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50/40">
+      <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
+
+        {/* ── Header ──────────────────────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: -16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 200, damping: 20 }}
+          className="flex items-center justify-between"
+        >
+          <div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <Sparkles size={14} className="text-emerald-500" />
+              <span className="text-xs font-semibold text-emerald-600 uppercase tracking-widest">Owner Dashboard</span>
+            </div>
+            <h1 className="text-2xl font-black text-gray-900 leading-tight">My Properties</h1>
+            <p className="text-sm text-gray-400 mt-0.5">
+              {isLoading ? "Fetching your listings…" : (
+                <><AnimatedCount value={total} /> propert{total === 1 ? "y" : "ies"} found</>
+              )}
+            </p>
+          </div>
+
+          <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+            <Link href="/owner/properties/new">
+              <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-5 shadow-md shadow-emerald-200 font-semibold">
+                <Plus size={15} /> Add Property
+              </Button>
+            </Link>
+          </motion.div>
+        </motion.div>
+
+        {/* ── Stat Cards ──────────────────────────────────────────── */}
+        {!isLoading && allProperties.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="grid grid-cols-3 gap-3"
+          >
+            <StatCard label="Approved"  value={approvedCount} icon={<CheckCircle2 size={14} />} color="emerald" />
+            <StatCard label="Pending"   value={pendingCount}  icon={<Clock size={14} />}         color="amber"   />
+            <StatCard label="Rejected"  value={rejectedCount} icon={<XCircle size={14} />}       color="red"     />
+          </motion.div>
+        )}
+
+        {/* ── Tabs ────────────────────────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="flex gap-1 bg-emerald-50 border border-emerald-100 rounded-2xl p-1"
+        >
+          {TABS.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setActiveTab(tab.value)}
+              className={`relative flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl transition-colors duration-200 ${
+                activeTab === tab.value
+                  ? "text-white"
+                  : "text-gray-500 hover:text-emerald-700 hover:bg-emerald-100/60"
+              }`}
+            >
+              {activeTab === tab.value && (
+                <motion.div
+                  layoutId="tab-pill"
+                  className="absolute inset-0 bg-emerald-600 rounded-xl shadow-sm shadow-emerald-300"
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1.5">
+                {tab.icon}
+                {tab.label}
+              </span>
+            </button>
+          ))}
+        </motion.div>
+
+        {/* ── Loading ──────────────────────────────────────────────── */}
+        {isLoading && <LoadingSkeleton />}
+
+        {/* ── Error ────────────────────────────────────────────────── */}
+        {isError && !isLoading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center py-16 gap-4"
+          >
+            <Player
+              autoplay
+              loop
+              src="https://lottie.host/f0a49635-3f8d-4b2f-8e1e-34c70e09c1cf/IrItCHGOBT.json"
+              style={{ height: 120, width: 120 }}
+            />
+            <p className="text-sm text-red-500 font-medium">Failed to load properties.</p>
+            <Button variant="outline" size="sm" onClick={() => refetch()} className="rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+              Try Again
+            </Button>
+          </motion.div>
+        )}
+
+        {/* ── Empty ────────────────────────────────────────────────── */}
+        {!isLoading && !isError && properties.length === 0 && (
+          <EmptyState tab={activeTab} />
+        )}
+
+        {/* ── Property List ─────────────────────────────────────────── */}
+        {!isLoading && !isError && properties.length > 0 && (
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+            className="space-y-3"
+          >
+            <AnimatePresence mode="popLayout">
+              {properties.map((property, index) => (
+                <PropertyCard
+                  key={property.id}
+                  property={property}
+                  onDelete={handleDelete}
+                  deleting={deletingId === property.id}
+                  index={index}
+                />
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        )}
+
       </div>
-
-      <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-6">
-        {/* <form onSubmit={handleSubmit(onSubmit)} className="space-y-6"> */}
-        {/* Image Uploader */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Upload Images <span className="text-destructive">*</span></CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ImageUploader onUrlsChange={setImageUrls} maxImages={10} />
-            {imageUrls.length === 0 && (
-              <p className="text-sm text-destructive mt-2">At least 1 image is required</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Basic Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Basic Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div>
-              <Label>Title <span className="text-destructive">*</span></Label>
-              <Input {...register("title")} placeholder="e.g., Beautiful 3-bedroom flat in Mirpur" />
-              {errors.title && <p className="text-destructive text-sm">{errors.title.message}</p>}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Property Type */}
-              <div>
-                <Label>Property Type <span className="text-destructive">*</span></Label>
-                <Controller
-                  name="type"
-                  control={control}
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value ?? "FAMILY_FLAT"}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select property type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="FAMILY_FLAT">Family Flat</SelectItem>
-                        <SelectItem value="BACHELOR_ROOM">Bachelor Room</SelectItem>
-                        <SelectItem value="SUBLET">Sublet</SelectItem>
-                        <SelectItem value="HOSTEL">Hostel</SelectItem>
-                        <SelectItem value="OFFICE_SPACE">Office Space</SelectItem>
-                        <SelectItem value="COMMERCIAL">Commercial</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              </div>
-
-              {/* Available For */}
-              <div>
-                <Label>Available For</Label>
-                <Controller
-                  name="availableFor"
-                  control={control}
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value ?? "ANY"}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select option" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="FAMILY">Family</SelectItem>
-                        <SelectItem value="BACHELOR">Bachelor</SelectItem>
-                        <SelectItem value="CORPORATE">Corporate</SelectItem>
-                        <SelectItem value="ANY">Anyone</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label>Description <span className="text-destructive">*</span></Label>
-              <Textarea {...register("description")} rows={5} placeholder="Detailed description of the property..." />
-              {errors.description && <p className="text-destructive text-sm">{errors.description.message}</p>}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Location */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Location</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>City <span className="text-destructive">*</span></Label>
-                <Input {...register("city")} placeholder="e.g., Dhaka" />
-                {errors.city && <p className="text-destructive text-sm">{errors.city.message}</p>}
-              </div>
-              <div>
-                <Label>Area <span className="text-destructive">*</span></Label>
-                <Input {...register("area")} placeholder="e.g., Mirpur-10" />
-                {errors.area && <p className="text-destructive text-sm">{errors.area.message}</p>}
-              </div>
-            </div>
-
-            <div>
-              <Label>Full Address <span className="text-destructive">*</span></Label>
-              <Input {...register("address")} placeholder="Road 5, House 12, Mirpur-10, Dhaka" />
-              {errors.address && <p className="text-destructive text-sm">{errors.address.message}</p>}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Property Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Property Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label>Bedrooms</Label>
-                <Input {...register("bedrooms")} type="number" min={0} />
-              </div>
-              <div>
-                <Label>Bathrooms</Label>
-                <Input {...register("bathrooms")} type="number" min={0} />
-              </div>
-              <div>
-                <Label>Size (sqft)</Label>
-                <Input {...register("size")} type="number" min={0} placeholder="Optional" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Pricing */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Pricing</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label>Monthly Rent (৳) <span className="text-destructive">*</span></Label>
-                <Input {...register("rentAmount")} type="number" min={0} placeholder="25000" />
-                {errors.rentAmount && <p className="text-destructive text-sm">{errors.rentAmount.message}</p>}
-              </div>
-              <div>
-                <Label>Advance Deposit (৳)</Label>
-                <Input {...register("advanceDeposit")} type="number" min={0} placeholder="0" />
-              </div>
-              <div>
-                <Label>Booking Fee (৳)</Label>
-                <Input {...register("bookingFee")} type="number" min={0} placeholder="0" />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Controller
-                name="isNegotiable"
-                control={control}
-                render={({ field }) => (
-                  <Switch
-                    id="negotiable"
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                )}
-              />
-              <Label htmlFor="negotiable" className="cursor-pointer">
-                Rent is negotiable
-              </Label>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Availability */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Availability</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div>
-              <Label>Available From <span className="text-destructive">*</span></Label>
-              <Input
-                {...register("availableFrom")}
-                type="date"
-                min={new Date().toISOString().split("T")[0]}
-                className="mt-1"
-              />
-              {errors.availableFrom && <p className="text-destructive text-sm">{errors.availableFrom.message}</p>}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Submit Button */}
-        <Button type="submit" className="w-full" size="lg" disabled={isPending}>
-          {isPending ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Creating Property...
-            </>
-          ) : (
-            "Submit Property"
-          )}
-        </Button>
-
-        <p className="text-center text-xs text-muted-foreground">
-          After submission, admin will review your property. It will be publicly visible once approved.
-        </p>
-      </form>
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// "use client";
+
+// // ✅ FILE PATH: src/app/(dashboardRoute)/owner/properties/page.tsx
+// // NOTE: তোমার project এ (dashboardRoute) বা (ownerRoute) যেটা সঠিক সেটা use করো
+
+// import { useState } from "react";
+// import Link from "next/link";
+
+// // ✅ BUG FIX: import path — new/page.tsx এর মতো একই path use করছি
+// import {
+//   useOwnerProperties,
+//   useDeleteProperty,
+//   type PropertyStatus,
+//   type Property,
+// } from "@/hooks/owner/useOwnerApi";
+
+// import { toast } from "sonner";
+// import { Loader2, Pencil, Eye, Trash2, Plus } from "lucide-react";
+// import { Button } from "@/components/ui/button";
+// import { Badge } from "@/components/ui/badge";
+
+// // ── Tab Config ─────────────────────────────────────────────────────────────────
+// const TABS: { label: string; value: PropertyStatus | "ALL" }[] = [
+//   { label: "All",      value: "ALL"      },
+//   { label: "Approved", value: "APPROVED" },
+//   { label: "Pending",  value: "PENDING"  },
+//   { label: "Rejected", value: "REJECTED" },
+// ];
+
+// // ── Status Badge ───────────────────────────────────────────────────────────────
+// function StatusBadge({ status }: { status: PropertyStatus }) {
+//   const variants: Record<PropertyStatus, "default" | "secondary" | "destructive"> = {
+//     APPROVED: "default",
+//     PENDING:  "secondary",
+//     REJECTED: "destructive",
+//   };
+//   return (
+//     <Badge variant={variants[status] ?? "secondary"}>
+//       {status}
+//     </Badge>
+//   );
+// }
+
+// // ── Property Row / Card ────────────────────────────────────────────────────────
+// function PropertyCard({
+//   property,
+//   onDelete,
+//   deleting,
+// }: {
+//   property: Property;
+//   onDelete: (id: string) => void;
+//   deleting: boolean;
+// }) {
+//   const image = property.images?.[0] ?? "/placeholder.png";
+
+//   return (
+//     <div className="flex flex-col sm:flex-row gap-4 bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
+//       {/* Thumbnail */}
+//       <div className="w-full sm:w-36 h-28 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+//         <img
+//           src={image}
+//           alt={property.title}
+//           className="w-full h-full object-cover"
+//           onError={(e) => {
+//             (e.target as HTMLImageElement).src = "/placeholder.png";
+//           }}
+//         />
+//       </div>
+
+//       {/* Info */}
+//       <div className="flex-1 min-w-0 space-y-1">
+//         <div className="flex items-start justify-between gap-2">
+//           <h3 className="font-semibold text-gray-900 truncate text-sm">
+//             {property.title}
+//           </h3>
+//           <StatusBadge status={property.status} />
+//         </div>
+
+//         <p className="text-xs text-gray-500">
+//           {property.area}, {property.city}
+//         </p>
+
+//         <p className="text-xs text-gray-500">
+//           {property.bedrooms} bed · {property.bathrooms} bath
+//           {property.size ? ` · ${property.size} sqft` : ""}
+//         </p>
+
+//         <p className="font-bold text-blue-600 text-sm">
+//           ৳ {property.rentAmount.toLocaleString()}/month
+//         </p>
+
+//         <p className="text-xs text-gray-400">
+//           Type: {property.type.replace(/_/g, " ")} ·
+//           For: {property.availableFor}
+//         </p>
+//       </div>
+
+//       {/* Actions */}
+//       <div className="flex sm:flex-col gap-2 justify-end flex-shrink-0">
+//         <Link href={`/owner/properties/${property.id}`}>
+//           <Button variant="outline" size="sm" className="gap-1 text-xs w-full">
+//             <Eye size={13} /> View
+//           </Button>
+//         </Link>
+//         <Link href={`/owner/properties/${property.id}/edit`}>
+//           <Button variant="outline" size="sm" className="gap-1 text-xs w-full">
+//             <Pencil size={13} /> Edit
+//           </Button>
+//         </Link>
+//         <Button
+//           variant="destructive"
+//           size="sm"
+//           className="gap-1 text-xs w-full"
+//           disabled={deleting}
+//           onClick={() => {
+//             if (confirm("Are you sure you want to delete this property?")) {
+//               onDelete(property.id);
+//             }
+//           }}
+//         >
+//           {deleting ? (
+//             <Loader2 size={13} className="animate-spin" />
+//           ) : (
+//             <Trash2 size={13} />
+//           )}
+//           Delete
+//         </Button>
+//       </div>
+//     </div>
+//   );
+// }
+
+// // ── Empty State ────────────────────────────────────────────────────────────────
+// function EmptyState({ tab }: { tab: string }) {
+//   return (
+//     <div className="flex flex-col items-center justify-center py-24 text-center">
+//       <span className="text-5xl mb-4">🏠</span>
+//       <h3 className="text-lg font-semibold text-gray-700 mb-1">
+//         No properties found
+//       </h3>
+//       <p className="text-sm text-gray-400 max-w-xs">
+//         {tab === "ALL"
+//           ? "You haven't added any properties yet. Click the button below to add your first property."
+//           : `You have no ${tab.toLowerCase()} properties right now.`}
+//       </p>
+//       {tab === "ALL" && (
+//         <Link href="/owner/properties/new" className="mt-5">
+//           <Button className="gap-2">
+//             <Plus size={16} /> Add Your First Property
+//           </Button>
+//         </Link>
+//       )}
+//     </div>
+//   );
+// }
+
+// // ── Main Page ──────────────────────────────────────────────────────────────────
+// export default function OwnerPropertiesPage() {
+//   const [activeTab, setActiveTab] = useState<PropertyStatus | "ALL">("ALL");
+//   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+//   // ✅ FIX: activeTab === "ALL" হলে status undefined পাঠাই (filter ছাড়া সব আসবে)
+//   const { data, isLoading, isError, refetch } = useOwnerProperties(
+//     activeTab === "ALL"
+//       ? undefined                           // ← কোনো filter নেই, সব property আসবে
+//       : { status: activeTab as PropertyStatus }
+//   );
+
+//   const { mutateAsync: deleteProperty } = useDeleteProperty();
+
+//   // ✅ FIX: data?.data handle করছি (meta এ total নাও থাকতে পারে)
+//   const properties: Property[] = data?.data ?? [];
+//   const total = data?.meta?.total ?? properties.length;
+
+//   const handleDelete = async (id: string) => {
+//     setDeletingId(id);
+//     try {
+//       await deleteProperty(id);
+//       toast.success("Property deleted successfully");
+//     } catch {
+//       toast.error("Failed to delete property");
+//     } finally {
+//       setDeletingId(null);
+//     }
+//   };
+
+//   return (
+//     <div className="min-h-screen bg-background">
+//       <div className="max-w-4xl mx-auto px-4 py-8">
+
+//         {/* ── Header ──────────────────────────────────────────────── */}
+//         <div className="flex items-center justify-between mb-6">
+//           <div>
+//             <h1 className="text-2xl font-bold text-gray-900">My Properties</h1>
+//             <p className="text-sm text-gray-500 mt-0.5">
+//               {isLoading
+//                 ? "Loading..."
+//                 : `${total} propert${total === 1 ? "y" : "ies"} found`}
+//             </p>
+//           </div>
+//           <Link href="/owner/properties/new">
+//             <Button className="gap-2">
+//               <Plus size={16} /> Add Property
+//             </Button>
+//           </Link>
+//         </div>
+
+//         {/* ── Tabs ────────────────────────────────────────────────── */}
+//         <div className="flex gap-0 border-b border-gray-200 mb-6">
+//           {TABS.map((tab) => (
+//             <button
+//               key={tab.value}
+//               onClick={() => setActiveTab(tab.value)}
+//               className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
+//                 activeTab === tab.value
+//                   ? "border-blue-600 text-blue-600"
+//                   : "border-transparent text-gray-500 hover:text-gray-700"
+//               }`}
+//             >
+//               {tab.label}
+//             </button>
+//           ))}
+//         </div>
+
+//         {/* ── Loading ──────────────────────────────────────────────── */}
+//         {isLoading && (
+//           <div className="space-y-4">
+//             {[1, 2, 3].map((i) => (
+//               <div
+//                 key={i}
+//                 className="h-36 bg-white rounded-xl border border-gray-200 animate-pulse"
+//               />
+//             ))}
+//           </div>
+//         )}
+
+//         {/* ── Error ────────────────────────────────────────────────── */}
+//         {isError && !isLoading && (
+//           <div className="text-center py-20 space-y-3">
+//             <p className="text-red-500 font-medium">
+//               ❌ Properties load করতে সমস্যা হয়েছে।
+//             </p>
+//             <Button variant="outline" onClick={() => refetch()}>
+//               Try Again
+//             </Button>
+//           </div>
+//         )}
+
+//         {/* ── Empty ────────────────────────────────────────────────── */}
+//         {!isLoading && !isError && properties.length === 0 && (
+//           <EmptyState tab={activeTab} />
+//         )}
+
+//         {/* ── Property List ─────────────────────────────────────────── */}
+//         {!isLoading && !isError && properties.length > 0 && (
+//           <div className="space-y-4">
+//             {properties.map((property) => (
+//               <PropertyCard
+//                 key={property.id}
+//                 property={property}
+//                 onDelete={handleDelete}
+//                 deleting={deletingId === property.id}
+//               />
+//             ))}
+//           </div>
+//         )}
+
+//       </div>
+//     </div>
+//   );
+// }

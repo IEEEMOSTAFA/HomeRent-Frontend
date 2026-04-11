@@ -42,7 +42,7 @@ import StatusBadge from "@/components/Admin/StatusBadge";
 function usePropertyDetail(id: string) {
   return useQuery<PendingProperty>({
     queryKey: ["admin", "property", id],
-    queryFn:  () => apiFetch(`/properties/${id}`),
+    queryFn:  () => apiFetch(`/admin/properties/${id}`),
     enabled:  !!id,
   });
 }
@@ -87,9 +87,9 @@ export default function AdminPropertyDetailPage({
   }
 
   function handleRejectSubmit() {
-    if (!rejectionReason.trim()) { 
-      toast.error("Please provide a reason"); 
-      return; 
+    if (!rejectionReason.trim()) {
+      toast.error("Please provide a reason");
+      return;
     }
     approveProperty(
       { id, status: "REJECTED", rejectionReason },
@@ -142,9 +142,11 @@ export default function AdminPropertyDetailPage({
             <h1 className="text-xl font-bold line-clamp-1">{p.title}</h1>
             <div className="flex items-center gap-2 mt-0.5">
               <StatusBadge status={p.status} />
-              <Badge variant="secondary" className="text-[10px]">
-                {p.type.replace(/_/g, " ")}
-              </Badge>
+              {p.type && (
+                <Badge variant="secondary" className="text-[10px]">
+                  {p.type?.replace(/_/g, " ") ?? "N/A"}
+                </Badge>
+              )}
             </div>
           </div>
         </div>
@@ -181,7 +183,7 @@ export default function AdminPropertyDetailPage({
       </div>
 
       {/* Images */}
-      {p.images.length > 0 && (
+      {p.images?.length > 0 && (
         <div className="grid grid-cols-3 gap-2 rounded-xl overflow-hidden">
           {p.images.slice(0, 3).map((img, i) => (
             <div key={i} className={`relative ${i === 0 ? "col-span-2" : ""} h-52`}>
@@ -207,10 +209,10 @@ export default function AdminPropertyDetailPage({
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <MapPin size={14} />
-              {p.address}, {p.area}, {p.city}
+              {[p.address, p.area, p.city].filter(Boolean).join(", ")}
             </div>
             <p className="text-2xl font-bold text-emerald-700">
-              ${p.rentAmount.toLocaleString()}
+              ৳{p.rentAmount?.toLocaleString() ?? 0}
               <span className="text-sm font-normal text-muted-foreground">/mo</span>
             </p>
           </div>
@@ -219,10 +221,10 @@ export default function AdminPropertyDetailPage({
 
           <div className="grid grid-cols-4 gap-4 text-center">
             {[
-              { icon: <BedDouble size={16} />, label: "Bedrooms",  val: p.bedrooms },
-              { icon: <Bath size={16} />,      label: "Bathrooms", val: p.bathrooms },
+              { icon: <BedDouble size={16} />, label: "Bedrooms",  val: p.bedrooms ?? "—" },
+              { icon: <Bath size={16} />,      label: "Bathrooms", val: p.bathrooms ?? "—" },
               { icon: <SquareIcon size={16} />,label: "Size",      val: p.size ? `${p.size} sqft` : "—" },
-              { icon: <Eye size={16} />,       label: "For",       val: p.availableFor },
+              { icon: <Eye size={16} />,       label: "For",       val: p.availableFor ?? "—" },
             ].map((item) => (
               <div key={item.label}>
                 <div className="text-muted-foreground flex justify-center mb-1">{item.icon}</div>
@@ -238,7 +240,7 @@ export default function AdminPropertyDetailPage({
       <Card className="shadow-none">
         <CardHeader className="pb-2"><CardTitle className="text-sm">Description</CardTitle></CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground leading-relaxed">{p.description}</p>
+          <p className="text-sm text-muted-foreground leading-relaxed">{p.description ?? "No description provided."}</p>
         </CardContent>
       </Card>
 
@@ -246,9 +248,9 @@ export default function AdminPropertyDetailPage({
       <Card className="shadow-none">
         <CardHeader className="pb-2"><CardTitle className="text-sm">Pricing</CardTitle></CardHeader>
         <CardContent>
-          <InfoRow icon={<DollarSign size={14} />} label="Monthly Rent"    value={`$${p.rentAmount.toLocaleString()}`} />
-          <InfoRow icon={<DollarSign size={14} />} label="Advance Deposit" value={`$${(p as any).advanceDeposit?.toLocaleString() ?? 0}`} />
-          <InfoRow icon={<DollarSign size={14} />} label="Booking Fee"     value={`$${(p as any).bookingFee?.toLocaleString() ?? 0}`} />
+          <InfoRow icon={<DollarSign size={14} />} label="Monthly Rent"    value={`৳${p.rentAmount?.toLocaleString() ?? 0}`} />
+          <InfoRow icon={<DollarSign size={14} />} label="Advance Deposit" value={`৳${(p as any).advanceDeposit?.toLocaleString() ?? 0}`} />
+          <InfoRow icon={<DollarSign size={14} />} label="Booking Fee"     value={`৳${(p as any).bookingFee?.toLocaleString() ?? 0}`} />
           {(p as any).isNegotiable && (
             <p className="text-xs text-emerald-600 mt-2">✓ Rent is negotiable</p>
           )}
@@ -259,8 +261,12 @@ export default function AdminPropertyDetailPage({
       <Card className="shadow-none">
         <CardHeader className="pb-2"><CardTitle className="text-sm">Availability</CardTitle></CardHeader>
         <CardContent>
-          <InfoRow icon={<Calendar size={14} />} label="Available From" value={new Date(p.availableFrom).toLocaleDateString()} />
-          <InfoRow icon={<Users size={14} />}    label="Suitable For"   value={p.availableFor} />
+          <InfoRow
+            icon={<Calendar size={14} />}
+            label="Available From"
+            value={p.availableFrom ? new Date(p.availableFrom).toLocaleDateString() : "—"}
+          />
+          <InfoRow icon={<Users size={14} />} label="Suitable For" value={p.availableFor ?? "—"} />
         </CardContent>
       </Card>
 
@@ -270,13 +276,13 @@ export default function AdminPropertyDetailPage({
         <CardContent className="p-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-700 font-bold">
-              {p.owner.name[0]?.toUpperCase()}
+              {p.owner?.name?.[0]?.toUpperCase() ?? "?"}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm">{p.owner.name}</p>
-              <p className="text-xs text-muted-foreground">{p.owner.email}</p>
+              <p className="font-semibold text-sm">{p.owner?.name ?? "Unknown"}</p>
+              <p className="text-xs text-muted-foreground">{p.owner?.email ?? "—"}</p>
             </div>
-            {p.owner.ownerProfile?.verified ? (
+            {p.owner?.ownerProfile?.verified ? (
               <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-50 text-[10px]">
                 Verified
               </Badge>
@@ -286,7 +292,7 @@ export default function AdminPropertyDetailPage({
               </Badge>
             )}
           </div>
-          {p.owner.ownerProfile && (
+          {p.owner?.ownerProfile && (
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
               <span>Phone: {p.owner.ownerProfile.phone ?? "—"}</span>
               <span>NID: {p.owner.ownerProfile.nidNumber ?? "—"}</span>

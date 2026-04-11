@@ -16,7 +16,6 @@ import {
   Dialog, DialogContent, DialogHeader,
   DialogTitle, DialogFooter, DialogClose,
 } from "@/components/ui/dialog";
-// import StatusBadge from "../_components/StatusBadge";
 import { useAdminPayments, useRefundPayment, type PaymentStatus, type AdminPayment } from "@/hooks/admin/useAdminApi";
 import StatusBadge from "@/components/Admin/StatusBadge";
 
@@ -49,7 +48,7 @@ export default function AdminPaymentsPage() {
       return;
     }
     refundPayment(
-      { id: refundTarget.id, reason: refundReason },
+      { id: refundTarget.id, refundAmount: undefined },
       {
         onSuccess: () => {
           toast.success("Refund initiated");
@@ -106,22 +105,24 @@ export default function AdminPaymentsPage() {
                   {payments.map((p) => (
                     <tr key={p.id} className="hover:bg-muted/30 transition-colors">
                       <td className="px-5 py-3.5">
-                        <p className="font-medium text-sm">{p.user.name}</p>
-                        <p className="text-xs text-muted-foreground">{p.user.email}</p>
+                        <p className="font-medium text-sm">{p.user?.name ?? "—"}</p>
+                        <p className="text-xs text-muted-foreground">{p.user?.email ?? "—"}</p>
                       </td>
                       <td className="px-4 py-3.5">
-                        <p className="text-sm line-clamp-1">{p.booking.property.title}</p>
-                        <p className="text-xs text-muted-foreground">{p.booking.property.area}, {p.booking.property.city}</p>
+                        <p className="text-sm line-clamp-1">{p.booking?.property?.title ?? "—"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {[p.booking?.property?.area, p.booking?.property?.city].filter(Boolean).join(", ") || "—"}
+                        </p>
                       </td>
                       <td className="px-4 py-3.5">
-                        <p className="font-bold text-emerald-700">৳{p.amount.toLocaleString()}</p>
-                        <p className="text-[11px] text-muted-foreground">{p.currency}</p>
+                        <p className="font-bold text-emerald-700">৳{p.amount?.toLocaleString() ?? 0}</p>
+                        <p className="text-[11px] text-muted-foreground">{p.currency ?? "—"}</p>
                       </td>
                       <td className="px-4 py-3.5">
                         <StatusBadge status={p.status} />
                       </td>
                       <td className="px-4 py-3.5 text-xs text-muted-foreground">
-                        {new Date(p.createdAt).toLocaleDateString()}
+                        {p.createdAt ? new Date(p.createdAt).toLocaleDateString() : "—"}
                       </td>
                       <td className="px-5 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -169,9 +170,9 @@ export default function AdminPaymentsPage() {
           </DialogHeader>
           <div className="space-y-3">
             <div className="bg-muted/40 rounded-lg p-3 text-sm space-y-1">
-              <p>User: <strong>{refundTarget?.user.name}</strong></p>
-              <p>Amount: <strong className="text-emerald-700">৳{refundTarget?.amount.toLocaleString()}</strong></p>
-              <p>Property: <strong>{refundTarget?.booking.property.title}</strong></p>
+              <p>User: <strong>{refundTarget?.user?.name ?? "—"}</strong></p>
+              <p>Amount: <strong className="text-emerald-700">৳{refundTarget?.amount?.toLocaleString() ?? 0}</strong></p>
+              <p>Property: <strong>{refundTarget?.booking?.property?.title ?? "—"}</strong></p>
             </div>
             <div className="space-y-1.5">
               <Label>Reason <span className="text-destructive">*</span></Label>

@@ -1,4 +1,4 @@
-// src/app/(dashboardRoute)/admin/_components/StatusBadge.tsx
+// src/components/Admin/StatusBadge.tsx
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,9 @@ const STYLES: Record<string, string> = {
   USER:            "bg-gray-100  text-gray-600   border-gray-200",
 };
 
-export default function StatusBadge({ status }: { status: string }) {
+export default function StatusBadge({ status }: { status?: string }) {
+  if (!status) return null;
+
   return (
     <Badge
       variant="outline"

@@ -1,7 +1,5 @@
 "use client";
 // src/app/(dashboardRoute)/admin/payments/[id]/page.tsx
-// API: POST /api/admin/payments/:id/refund
-// Data: found from GET /api/admin/payments list
 
 import { use, useState } from "react";
 import Link from "next/link";
@@ -22,7 +20,6 @@ import {
   Dialog, DialogContent, DialogHeader,
   DialogTitle, DialogFooter, DialogClose,
 } from "@/components/ui/dialog";
-// import StatusBadge          from "../../_components/StatusBadge";
 import { useAdminPayments, useRefundPayment, type AdminPayment } from "@/hooks/admin/useAdminApi";
 import StatusBadge from "@/components/Admin/StatusBadge";
 
@@ -36,7 +33,7 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
   );
 }
 
-// ─── timeline dot ─────────────────────────────────────────────────────────────
+// ─── timeline item ────────────────────────────────────────────────────────────
 function TimelineItem({ icon, label, date, active }: {
   icon: React.ReactNode; label: string; date?: string | null; active: boolean;
 }) {
@@ -64,8 +61,6 @@ export default function AdminPaymentDetailPage({
 }) {
   const { id } = use(params);
 
-  // Fetch from the admin payments list and find by id
-  // (no dedicated single-payment endpoint in backend routes)
   const { data, isLoading } = useAdminPayments({ page: 1 });
   const payment = data?.data?.find((p) => p.id === id) as AdminPayment | undefined;
 
@@ -76,7 +71,7 @@ export default function AdminPaymentDetailPage({
   function handleRefundSubmit() {
     if (!refundReason.trim()) { toast.error("Provide a reason"); return; }
     refundPayment(
-      { id, reason: refundReason },
+      { id, refundAmount: undefined },
       {
         onSuccess: () => {
           toast.success("Refund initiated successfully");
@@ -88,7 +83,6 @@ export default function AdminPaymentDetailPage({
     );
   }
 
-  // ── loading ──────────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div className="max-w-2xl mx-auto space-y-4">
@@ -110,11 +104,10 @@ export default function AdminPaymentDetailPage({
 
   const canRefund = payment.status === "SUCCESS";
 
-  // ── render ───────────────────────────────────────────────────────────────────
   return (
     <div className="max-w-2xl mx-auto space-y-5">
 
-      {/* ── Header ── */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/admin/payments">
@@ -126,12 +119,12 @@ export default function AdminPaymentDetailPage({
             <h1 className="text-xl font-bold">Payment Detail</h1>
             <div className="flex items-center gap-2 mt-0.5">
               <StatusBadge status={payment.status} />
-              <span className="text-xs text-muted-foreground font-mono">#{payment.id.slice(-8).toUpperCase()}</span>
+              <span className="text-xs text-muted-foreground font-mono">
+                #{payment.id?.slice(-8).toUpperCase() ?? "—"}
+              </span>
             </div>
           </div>
         </div>
-
-        {/* Refund button */}
         {canRefund && (
           <Button
             variant="outline"
@@ -144,12 +137,12 @@ export default function AdminPaymentDetailPage({
         )}
       </div>
 
-      {/* ── Amount hero ── */}
+      {/* Amount hero */}
       <Card className="shadow-none border-emerald-100 bg-emerald-50/30">
         <CardContent className="p-6 text-center">
           <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Amount</p>
-          <p className="text-4xl font-bold text-emerald-700">৳{payment.amount.toLocaleString()}</p>
-          <p className="text-sm text-muted-foreground mt-1">{payment.currency}</p>
+          <p className="text-4xl font-bold text-emerald-700">৳{payment.amount?.toLocaleString() ?? 0}</p>
+          <p className="text-sm text-muted-foreground mt-1">{payment.currency ?? "—"}</p>
           {payment.receiptUrl && (
             <a href={payment.receiptUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block">
               <Button variant="outline" size="sm" className="gap-1.5 text-xs mt-2">
@@ -160,7 +153,7 @@ export default function AdminPaymentDetailPage({
         </CardContent>
       </Card>
 
-      {/* ── Payment details ── */}
+      {/* Payment details */}
       <Card className="shadow-none">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
@@ -169,20 +162,20 @@ export default function AdminPaymentDetailPage({
         </CardHeader>
         <Separator />
         <CardContent className="pt-2">
-          <InfoRow icon={<Hash size={14} />}         label="Payment ID"        value={<span className="font-mono text-xs">{payment.id}</span>} />
-          <InfoRow icon={<Hash size={14} />}         label="Stripe Intent ID"  value={<span className="font-mono text-xs">{payment.stripePaymentIntentId ?? "—"}</span>} />
-          <InfoRow icon={<CheckCircle size={14} />}  label="Status"            value={<StatusBadge status={payment.status} />} />
-          <InfoRow icon={<Calendar size={14} />}     label="Created"           value={new Date(payment.createdAt).toLocaleString()} />
+          <InfoRow icon={<Hash size={14} />}        label="Payment ID"       value={<span className="font-mono text-xs">{payment.id}</span>} />
+          <InfoRow icon={<Hash size={14} />}        label="Stripe Intent ID" value={<span className="font-mono text-xs">{payment.stripePaymentIntentId ?? "—"}</span>} />
+          <InfoRow icon={<CheckCircle size={14} />} label="Status"           value={<StatusBadge status={payment.status} />} />
+          <InfoRow icon={<Calendar size={14} />}    label="Created"          value={payment.createdAt ? new Date(payment.createdAt).toLocaleString() : "—"} />
           {payment.refundedAt && (
-            <InfoRow icon={<RefreshCw size={14} />}  label="Refunded At"       value={new Date(payment.refundedAt).toLocaleString()} />
+            <InfoRow icon={<RefreshCw size={14} />} label="Refunded At"      value={new Date(payment.refundedAt).toLocaleString()} />
           )}
           {payment.refundAmount != null && payment.refundAmount > 0 && (
-            <InfoRow icon={<DollarSign size={14} />} label="Refund Amount"     value={`৳${payment.refundAmount.toLocaleString()}`} />
+            <InfoRow icon={<DollarSign size={14} />} label="Refund Amount"   value={`৳${payment.refundAmount.toLocaleString()}`} />
           )}
         </CardContent>
       </Card>
 
-      {/* ── User ── */}
+      {/* User */}
       <Card className="shadow-none">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
@@ -193,11 +186,11 @@ export default function AdminPaymentDetailPage({
         <CardContent className="pt-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-rose-100 flex items-center justify-center text-rose-700 font-bold flex-shrink-0">
-              {payment.user.name[0]?.toUpperCase()}
+              {payment.user?.name?.[0]?.toUpperCase() ?? "?"}
             </div>
             <div>
-              <p className="font-semibold text-sm">{payment.user.name}</p>
-              <p className="text-xs text-muted-foreground">{payment.user.email}</p>
+              <p className="font-semibold text-sm">{payment.user?.name ?? "—"}</p>
+              <p className="text-xs text-muted-foreground">{payment.user?.email ?? "—"}</p>
             </div>
             <Link href={`/admin/users/${payment.userId}`} className="ml-auto">
               <Button variant="ghost" size="sm" className="h-7 text-xs gap-1">
@@ -208,7 +201,7 @@ export default function AdminPaymentDetailPage({
         </CardContent>
       </Card>
 
-      {/* ── Booking & Property ── */}
+      {/* Booking & Property */}
       <Card className="shadow-none">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
@@ -217,16 +210,16 @@ export default function AdminPaymentDetailPage({
         </CardHeader>
         <Separator />
         <CardContent className="pt-2">
-          <InfoRow icon={<Hash size={14} />}        label="Booking ID"    value={<span className="font-mono text-xs">{payment.bookingId}</span>} />
-          <InfoRow icon={<CheckCircle size={14} />} label="Booking Status" value={<StatusBadge status={payment.booking.status} />} />
-          <InfoRow icon={<Calendar size={14} />}    label="Move-in Date"  value={new Date(payment.booking.moveInDate).toLocaleDateString()} />
-          <InfoRow icon={<DollarSign size={14} />}  label="Total Amount"  value={`৳${payment.booking.totalAmount.toLocaleString()}`} />
-          <InfoRow icon={<Building2 size={14} />}   label="Property"      value={payment.booking.property.title} />
-          <InfoRow icon={<Building2 size={14} />}   label="Location"      value={`${payment.booking.property.area}, ${payment.booking.property.city}`} />
+          <InfoRow icon={<Hash size={14} />}        label="Booking ID"      value={<span className="font-mono text-xs">{payment.bookingId ?? "—"}</span>} />
+          <InfoRow icon={<CheckCircle size={14} />} label="Booking Status"  value={<StatusBadge status={payment.booking?.status} />} />
+          <InfoRow icon={<Calendar size={14} />}    label="Move-in Date"    value={payment.booking?.moveInDate ? new Date(payment.booking.moveInDate).toLocaleDateString() : "—"} />
+          <InfoRow icon={<DollarSign size={14} />}  label="Total Amount"    value={`৳${payment.booking?.totalAmount?.toLocaleString() ?? 0}`} />
+          <InfoRow icon={<Building2 size={14} />}   label="Property"        value={payment.booking?.property?.title ?? "—"} />
+          <InfoRow icon={<Building2 size={14} />}   label="Location"        value={[payment.booking?.property?.area, payment.booking?.property?.city].filter(Boolean).join(", ") || "—"} />
         </CardContent>
       </Card>
 
-      {/* ── Status timeline ── */}
+      {/* Timeline */}
       <Card className="shadow-none">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
@@ -235,14 +228,14 @@ export default function AdminPaymentDetailPage({
         </CardHeader>
         <Separator />
         <CardContent className="pt-4 space-y-4">
-          <TimelineItem icon={<CreditCard size={14} />} label="Payment Created"   date={payment.createdAt}  active={true} />
+          <TimelineItem icon={<CreditCard size={14} />}  label="Payment Created"  date={payment.createdAt}  active={true} />
           <TimelineItem icon={<CheckCircle size={14} />} label="Payment Success"  date={payment.status === "SUCCESS" ? payment.createdAt : null} active={payment.status === "SUCCESS"} />
           <TimelineItem icon={<XCircle size={14} />}     label="Payment Failed"   date={null}               active={payment.status === "FAILED"} />
           <TimelineItem icon={<RefreshCw size={14} />}   label="Refunded"         date={payment.refundedAt} active={payment.status === "REFUNDED"} />
         </CardContent>
       </Card>
 
-      {/* ── Refund Dialog ── */}
+      {/* Refund Dialog */}
       <Dialog open={refundOpen} onOpenChange={setRefundOpen}>
         <DialogContent>
           <DialogHeader>
@@ -252,15 +245,15 @@ export default function AdminPaymentDetailPage({
             <div className="bg-muted/40 rounded-lg p-4 space-y-1.5 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">User</span>
-                <strong>{payment.user.name}</strong>
+                <strong>{payment.user?.name ?? "—"}</strong>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Amount</span>
-                <strong className="text-emerald-700">৳{payment.amount.toLocaleString()}</strong>
+                <strong className="text-emerald-700">৳{payment.amount?.toLocaleString() ?? 0}</strong>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Property</span>
-                <strong className="line-clamp-1 max-w-[200px]">{payment.booking.property.title}</strong>
+                <strong className="line-clamp-1 max-w-[200px]">{payment.booking?.property?.title ?? "—"}</strong>
               </div>
             </div>
             <div className="space-y-1.5">

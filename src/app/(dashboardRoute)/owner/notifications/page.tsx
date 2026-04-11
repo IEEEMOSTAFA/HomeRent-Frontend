@@ -11,7 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useNotifications, useMarkAllRead } from "@/hooks/owner/useOwnerApi";
+import {
+  useMyNotifications as useNotifications,
+  useMarkAllNotificationsRead as useMarkAllRead,
+} from "@/hooks/owner/useOwnerApi";
 import { cn } from "@/lib/utils";
 
 const TYPE_STYLES: Record<string, { dot: string; bg: string }> = {

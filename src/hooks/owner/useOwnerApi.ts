@@ -199,14 +199,14 @@ export function usePublicProperties(params?: {
   type?: PropertyType; sort?: string;
 }) {
   const q = new URLSearchParams();
-  if (params?.page)     q.set("page",     String(params.page));
-  if (params?.city)     q.set("city",     params.city);
-  if (params?.area)     q.set("area",     params.area);
-  if (params?.minRent)  q.set("minRent",  String(params.minRent));
-  if (params?.maxRent)  q.set("maxRent",  String(params.maxRent));
+  if (params?.page) q.set("page", String(params.page));
+  if (params?.city) q.set("city", params.city);
+  if (params?.area) q.set("area", params.area);
+  if (params?.minRent) q.set("minRent", String(params.minRent));
+  if (params?.maxRent) q.set("maxRent", String(params.maxRent));
   if (params?.bedrooms) q.set("bedrooms", String(params.bedrooms));
-  if (params?.type)     q.set("type",     params.type);
-  if (params?.sort)     q.set("sort",     params.sort);
+  if (params?.type) q.set("type", params.type);
+  if (params?.sort) q.set("sort", params.sort);
 
   return useQuery<PaginatedResponse<Property>>({
     queryKey: ["properties", "public", params],
@@ -222,6 +222,187 @@ export function usePublicProperty(id: string) {
   });
 }
 
+// ─── OWNER PROFILE ────────────────────────────────────────────────────────────
+
+export interface OwnerProfile {
+  id: string;
+  phone: string | null;
+  nidNumber: string | null;
+  verified: boolean;
+  rating: number;
+  totalReviews: number;
+  totalProperties: number;
+  totalEarnings: number;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    image: string | null;
+  };
+}
+
+export function useOwnerProfile() {
+  return useQuery<OwnerProfile>({
+    queryKey: ["owner", "profile"],
+    queryFn: async () => {
+      const res = await apiFetch<any>("/owner/profile");
+      console.log("👤 Owner profile raw:", res);
+      // Backend: { success, data: { ...profile } }
+      return res?.data ?? res;
+    },
+    retry: 1,
+    staleTime: 30000,
+  });
+}
+
+export function useUpdateOwnerProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { phone?: string; nidNumber?: string }) =>
+      apiFetch("/owner/profile", {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["owner", "profile"] });
+      qc.invalidateQueries({ queryKey: ["owner", "stats"] });
+    },
+  });
+}
+
+
+
+
+
+
+
+
+// ─── OWNER PROPERTIES ─────────────────────────────────────────────────────────
+
+// export function useOwnerProperties(params?: {
+//   page?: number;
+//   limit?: number;
+//   status?: PropertyStatus;
+// }) {
+//   const q = new URLSearchParams();
+//   if (params?.page) q.set("page", String(params.page));
+//   if (params?.limit) q.set("limit", String(params.limit));
+//   if (params?.status) q.set("status", params.status);
+
+//   return useQuery<PaginatedResponse<Property>>({
+//     queryKey: ["owner", "properties", params],
+//     queryFn: async () => {
+//       const res = await apiFetch<any>(`/owner/properties?${q}`);
+//       // backend সাধারণত { data: { data: [], meta: {} } } দেয়
+//       const payload = res?.data ?? res;
+//       return payload;
+//     },
+//     retry: 1,
+//     staleTime: 30000,
+//   });
+// }
+
+
+// test file:
+
+// ──────────────────────────────────────────────────────────────────
+// useOwnerApi.ts এ শুধু useOwnerProperties function টা replace করো
+// ──────────────────────────────────────────────────────────────────
+
+export function useOwnerProperties(params?: {
+  page?: number;
+  limit?: number;
+  status?: PropertyStatus;
+}) {
+  const q = new URLSearchParams();
+  if (params?.page)   q.set("page",   String(params.page));
+  if (params?.limit)  q.set("limit",  String(params.limit));
+  if (params?.status) q.set("status", params.status);
+
+  return useQuery<PaginatedResponse<Property>>({
+    queryKey: ["owner", "properties", params],
+    queryFn: async () => {
+      const res = await apiFetch<any>(`/owner/properties?${q}`);
+
+      // ✅ DEBUG — browser console এ দেখো কী আসছে
+      console.log("🏠 Owner properties raw:", JSON.stringify(res, null, 2));
+
+      // Backend response এর সম্ভাব্য shapes:
+      // Shape A: { success, data: { data: [], meta: {} } }       ← সবচেয়ে common
+      // Shape B: { success, data: { data: [], pagination: {} } }  ← bookings style
+      // Shape C: { success, data: [] }                            ← flat array
+      // Shape D: { data: [], meta: {} }                           ← wrapper ছাড়া
+
+      const outer = res?.data ?? res;
+
+      // ✅ Case 1: { data: [...], meta: {...} }
+      if (Array.isArray(outer?.data) && outer?.meta) {
+        return {
+          data: outer.data,
+          meta: outer.meta,
+        } as PaginatedResponse<Property>;
+      }
+
+      // ✅ Case 2: { data: [...], pagination: {...} } — pagination কে meta তে convert
+      if (Array.isArray(outer?.data) && outer?.pagination) {
+        return {
+          data: outer.data,
+          meta: {
+            total:      outer.pagination.total      ?? outer.data.length,
+            page:       outer.pagination.page       ?? 1,
+            limit:      outer.pagination.pageSize   ?? 10,
+            totalPages: outer.pagination.totalPages ?? 1,
+          },
+        } as PaginatedResponse<Property>;
+      }
+
+      // ✅ Case 3: outer নিজেই array
+      if (Array.isArray(outer)) {
+        return {
+          data: outer,
+          meta: { total: outer.length, page: 1, limit: outer.length, totalPages: 1 },
+        } as PaginatedResponse<Property>;
+      }
+
+      // ✅ Case 4: outer.data array কিন্তু meta/pagination নেই
+      if (Array.isArray(outer?.data)) {
+        return {
+          data: outer.data,
+          meta: { total: outer.data.length, page: 1, limit: outer.data.length, totalPages: 1 },
+        } as PaginatedResponse<Property>;
+      }
+
+      // Fallback
+      console.warn("⚠️ useOwnerProperties: unexpected response shape", res);
+      return {
+        data: [],
+        meta: { total: 0, page: 1, limit: 10, totalPages: 0 },
+      } as PaginatedResponse<Property>;
+    },
+    retry: 1,
+    staleTime: 30_000,
+  });
+}
+
+export function useDeleteProperty() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (propertyId: string) =>
+      apiFetch(`/owner/properties/${propertyId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["owner", "properties"] });
+      qc.invalidateQueries({ queryKey: ["owner", "stats"] });
+    },
+  });
+}
+
+
+
+
+
+
+
+
 // ─── BOOKINGS ─────────────────────────────────────────────────────────────────
 
 export function useMyBookings(params?: {
@@ -230,9 +411,9 @@ export function useMyBookings(params?: {
   status?: BookingStatus;
 }) {
   const q = new URLSearchParams();
-  if (params?.page)   q.set("page",     String(params.page));
-  if (params?.limit)  q.set("pageSize", String(params.limit)); // ✅ backend uses pageSize not limit
-  if (params?.status) q.set("status",   params.status);
+  if (params?.page) q.set("page", String(params.page));
+  if (params?.limit) q.set("pageSize", String(params.limit)); // ✅ backend uses pageSize not limit
+  if (params?.status) q.set("status", params.status);
 
   return useQuery<BookingListResponse>({
     queryKey: ["user", "bookings", params],
@@ -260,6 +441,36 @@ export function useMyBookings(params?: {
     staleTime: 30000,
   });
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+export function useRespondToBooking() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "ACCEPTED" | "DECLINED" }) =>
+      apiFetch(`/owner/bookings/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["owner", "bookings"] });
+      qc.invalidateQueries({ queryKey: ["owner", "stats"] });
+    },
+  });
+}
+
+
 
 export function useBookingById(id: string) {
   return useQuery<Booking>({
@@ -356,25 +567,139 @@ export function useCreateReview() {
   });
 }
 
-// ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
 
-export function useMyNotifications() {
-  return useQuery<Notification[]>({
-    queryKey: ["user", "notifications"],
+
+// ─── OWNER STATS ──────────────────────────────────────────────────────────────
+
+export interface OwnerStats {
+  totalProperties: number;
+  approvedProperties: number;
+  pendingProperties: number;
+  totalBookings: number;
+  confirmedBookings: number;
+  totalEarnings: number;
+  rating: number;
+  totalReviews: number;
+}
+
+export function useOwnerStats() {
+  return useQuery<OwnerStats>({
+    queryKey: ["owner", "stats"],
     queryFn: async () => {
-      const response = await apiFetch<any>("/notifications");
-      return response?.success && Array.isArray(response.data)
-        ? response.data
-        : Array.isArray(response)
-        ? response
-        : [];
+      const res = await apiFetch<any>("/owner/stats");
+      if (res?.data) return res.data;
+      return res;
+    },
+  });
+}
+
+// ─── OWNER BOOKINGS ───────────────────────────────────────────────────────────
+
+export function useOwnerBookings(params?: {
+  page?: number;
+  limit?: number;
+  status?: BookingStatus;
+}) {
+  const q = new URLSearchParams();
+  if (params?.page) q.set("page", String(params.page));
+  if (params?.limit) q.set("limit", String(params.limit));
+  if (params?.status) q.set("status", params.status);
+
+  return useQuery<BookingListResponse>({
+    queryKey: ["owner", "bookings", params],
+    queryFn: async () => {
+      const res = await apiFetch<any>(`/owner/bookings?${q}`);
+
+      // 🔍 DEBUG — browser console এ দেখো কী আসছে
+      console.log("🏠 Owner bookings raw response:", JSON.stringify(res, null, 2));
+
+     
+
+      const outer = res?.data ?? res;
+
+      // ✅ Case 1: { data: [...], pagination: {...} }
+      if (Array.isArray(outer?.data) && outer?.pagination) {
+        return { data: outer.data, pagination: outer.pagination };
+      }
+
+      // ✅ Case 2: { data: [...], meta: {...} }
+      if (Array.isArray(outer?.data) && outer?.meta) {
+        return {
+          data: outer.data,
+          pagination: {
+            page: outer.meta.page ?? 1,
+            pageSize: outer.meta.limit ?? 10,
+            total: outer.meta.total ?? outer.data.length,
+            totalPages: outer.meta.totalPages ?? 1,
+          },
+        };
+      }
+
+      // ✅ Case 3: outer নিজেই array
+      if (Array.isArray(outer)) {
+        return {
+          data: outer,
+          pagination: { page: 1, pageSize: outer.length, total: outer.length, totalPages: 1 },
+        };
+      }
+
+      // ✅ Case 4: outer.data array কিন্তু pagination নেই
+      if (Array.isArray(outer?.data)) {
+        return {
+          data: outer.data,
+          pagination: { page: 1, pageSize: outer.data.length, total: outer.data.length, totalPages: 1 },
+        };
+      }
+
+      // Fallback
+      return { data: [], pagination: { page: 1, pageSize: 10, total: 0, totalPages: 0 } };
     },
     retry: 1,
     staleTime: 30000,
   });
 }
 
+// ─── OWNER BOOKING ACTION (Accept / Decline) ──────────────────────────────────
 
+export function useOwnerUpdateBooking() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "ACCEPTED" | "DECLINED" }) =>
+      apiFetch(`/owner/bookings/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["owner", "bookings"] });
+      qc.invalidateQueries({ queryKey: ["owner", "stats"] });
+    },
+  });
+}
+
+// ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
+
+
+
+// useOwnerApi.ts এ এভাবে করো
+export function useMyNotifications() {
+  return useQuery<Notification[]>({
+    queryKey: ["owner", "notifications"],  // "user" → "owner" করো
+    queryFn: async () => {
+      const res = await apiFetch<any>("/notifications");
+
+      console.log("🔔 Owner notification response:", res);
+
+      if (Array.isArray(res?.data?.notifications)) return res.data.notifications;
+      if (Array.isArray(res?.notifications)) return res.notifications;
+      if (Array.isArray(res?.data)) return res.data;
+      if (Array.isArray(res)) return res;
+
+      return [];
+    },
+    retry: 1,
+    staleTime: 30000,
+  });
+}
 // ─── NOTIFICATION MUTATIONS (missing — added now) ─────────────────────────────
 
 // PATCH /api/notifications/:id/read
@@ -403,7 +728,148 @@ export function useMarkAllNotificationsRead() {
 
 
 
+export function useFlagReview() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, isFlagged }: { id: string; isFlagged: boolean }) =>
+      apiFetch(`/owner/reviews/${id}/flag`, {
+        method: "PATCH",
+        body: JSON.stringify({ isFlagged }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["owner", "reviews"] });
+    },
+  });
+}
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// useOwnerApi.ts এ পুরনো useAllOwnerReviews function টা এটা দিয়ে replace করো
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// ✅ Backend এ correct endpoint আছে (owner.route.ts line 38):
+//    GET /api/owner/properties/:propertyId/reviews
+//
+// Strategy:
+//   Step 1 → GET /owner/properties          — owner এর সব property আনো
+//   Step 2 → GET /owner/properties/:id/reviews — প্রতিটার reviews আনো (parallel)
+//   Step 3 → সব merge করে return করো
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function useAllOwnerReviews(params?: { page?: number; limit?: number }) {
+  return useQuery<PaginatedResponse<Review>>({
+    queryKey: ["owner", "reviews", params],
+    queryFn: async () => {
+
+      // ── Step 1: Owner এর সব properties আনো ──────────────────────────────
+      const propRes = await apiFetch<any>("/owner/properties?limit=100");
+      console.log("🏠 Owner properties (for reviews):", propRes);
+
+      const propOuter = propRes?.data ?? propRes;
+      const properties: Property[] =
+        Array.isArray(propOuter?.data) ? propOuter.data :
+        Array.isArray(propOuter)       ? propOuter      : [];
+
+      if (properties.length === 0) {
+        return { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
+      }
+
+      // ── Step 2: প্রতিটা property র reviews আনো parallel এ ────────────────
+      // ✅ CORRECT endpoint: /owner/properties/:propertyId/reviews
+      // ❌ WRONG (403):      /reviews?propertyId=xxx
+      // ❌ WRONG (404):      /owner/reviews
+      const reviewArrays = await Promise.all(
+        properties.map((p) =>
+          apiFetch<any>(`/owner/properties/${p.id}/reviews`)
+            .then((res) => {
+              console.log(`⭐ Reviews for property ${p.id}:`, res);
+
+              const outer = res?.data ?? res;
+
+              // response shape handle
+              if (Array.isArray(outer?.data)) return outer.data as Review[];
+              if (Array.isArray(outer))       return outer      as Review[];
+              return [] as Review[];
+            })
+            .catch((err) => {
+              console.warn(`⚠️ Reviews fetch failed for property ${p.id}:`, err);
+              return [] as Review[];
+            })
+        )
+      );
+
+      // ── Step 3: Merge ─────────────────────────────────────────────────────
+      const allReviews = reviewArrays.flat();
+      console.log(`✅ Total reviews loaded: ${allReviews.length}`);
+
+      return {
+        data: allReviews,
+        meta: {
+          total:      allReviews.length,
+          page:       1,
+          limit:      allReviews.length,
+          totalPages: 1,
+        },
+      } as PaginatedResponse<Review>;
+    },
+    retry: 1,
+    staleTime: 30_000,
+  });
+}
+
+
+
+
+
+export interface CreatePropertyInput {
+  title: string;
+  description: string;
+  type: PropertyType;
+  city: string;
+  area: string;
+  address: string;
+  bedrooms: number;
+  bathrooms: number;
+  size?: number;
+  rentAmount: number;
+  advanceDeposit: number;
+  bookingFee: number;
+  isNegotiable?: boolean;
+  availableFrom: string;
+  availableFor: AvailableFor;
+  images?: string[];
+}
+
+export function useCreateProperty() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: CreatePropertyInput) =>
+      apiFetch<Property>("/owner/properties", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["owner", "properties"] });
+      qc.invalidateQueries({ queryKey: ["owner", "stats"] });
+    },
+  });
+}
+
+// ─── UPDATE PROPERTY ──────────────────────────────────────────────────────────
+
+export function useUpdateProperty() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<CreatePropertyInput> }) =>
+      apiFetch<Property>(`/owner/properties/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["owner", "properties"] });
+    },
+  });
+}
 
 
 

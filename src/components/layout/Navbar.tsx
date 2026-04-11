@@ -149,7 +149,9 @@ export function Navbar({ className }: { className?: string }) {
         <nav className="hidden lg:flex justify-between items-center">
           <Link href="/" className="flex items-center gap-2">
             <Image
-              src="https://i.ibb.co/GfSxzpnb/skillbridge.png"
+              // src="https://i.ibb.co/GfSxzpnb/skillbridge.png"
+              //  src="https://res.cloudinary.com/dldqjm9da/image/upload/v1775882365/homerent/properties/alzrgmiger6pioj541ev.jpg"
+               src="https://res.cloudinary.com/dldqjm9da/image/upload/v1775882623/homerent/properties/x0visc67d5pqiufymdgh.jpg"
               alt="HomeRent logo"
               width={140} height={40}
               className="h-9 w-auto dark:invert"
@@ -182,7 +184,8 @@ export function Navbar({ className }: { className?: string }) {
         <div className="lg:hidden flex justify-between items-center">
           <Link href="/" className="flex items-center gap-2">
             <Image
-              src="https://i.ibb.co/GfSxzpnb/skillbridge.png"
+              // src="https://i.ibb.co/GfSxzpnb/skillbridge.png"
+              src="https://res.cloudinary.com/dldqjm9da/image/upload/v1775882623/homerent/properties/x0visc67d5pqiufymdgh.jpg"
               alt="HomeRent logo"
               width={32} height={32}
               className="dark:invert"
