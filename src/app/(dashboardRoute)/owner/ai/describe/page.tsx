@@ -1,17 +1,6 @@
 "use client";
 
-// FILE PATH: src/app/(commonRoute)/ai-overview/page.tsx
-//
-// AI-powered platform overview page sourced from the RentHome PRD.
-// Stack:
-//   • Framer Motion       — scroll reveals, stagger, spring physics
-//   • Anime.js (v4)       — counter animation, SVG path draw
-//   • @lottiefiles/dotlottie-react — section Lottie animations
-//   • shadcn/ui           — Button, Badge, Separator, Card, CardContent
-//
-// Install:
-//   npm install framer-motion animejs @lottiefiles/dotlottie-react
-//   npx shadcn@latest add button badge separator card
+
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";

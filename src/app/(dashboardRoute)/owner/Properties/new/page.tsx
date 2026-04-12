@@ -1,11 +1,19 @@
 "use client";
 
-// ✅ FILE PATH: src/app/(dashboardRoute)/owner/properties/page.tsx
+
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence, useSpring, useMotionValue } from "framer-motion";
-import { Player } from "@lottiefiles/react-lottie-player";
+import dynamic from "next/dynamic";
+
+// ✅ Fix: @lottiefiles/react-lottie-player uses `document` internally.
+// Next.js server-side render এ `document` থাকে না, তাই crash করে।
+// dynamic() + ssr:false দিলে শুধু browser এ load হবে — crash বন্ধ।
+const Player = dynamic(
+  () => import("@lottiefiles/react-lottie-player").then((mod) => mod.Player),
+  { ssr: false }
+);
 import {
   Plus, Pencil, Eye, Trash2, Loader2,
   MapPin, BedDouble, Bath, Ruler, Home,
@@ -84,20 +92,22 @@ const STATUS_CONFIG: Record<PropertyStatus, {
 };
 
 // ── Animation Variants ─────────────────────────────────────────────────────────
-const containerVariants = {
+import type { Variants } from "framer-motion";
+
+const containerVariants: Variants = {
   hidden: {},
   show: {
     transition: { staggerChildren: 0.08 },
   },
 };
 
-const cardVariants = {
+const cardVariants: Variants = {
   hidden: { opacity: 0, y: 24, scale: 0.97 },
   show:   { opacity: 1, y: 0,  scale: 1,   transition: { type: "spring", stiffness: 260, damping: 22 } },
   exit:   { opacity: 0, x: -40, scale: 0.95, transition: { duration: 0.2 } },
 };
 
-const tabIndicatorVariants = {
+const tabIndicatorVariants: Variants = {
   hidden: { scaleX: 0 },
   show:   { scaleX: 1, transition: { type: "spring", stiffness: 400, damping: 30 } },
 };
@@ -574,288 +584,3 @@ export default function OwnerPropertiesPage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// "use client";
-
-// // ✅ FILE PATH: src/app/(dashboardRoute)/owner/properties/page.tsx
-// // NOTE: তোমার project এ (dashboardRoute) বা (ownerRoute) যেটা সঠিক সেটা use করো
-
-// import { useState } from "react";
-// import Link from "next/link";
-
-// // ✅ BUG FIX: import path — new/page.tsx এর মতো একই path use করছি
-// import {
-//   useOwnerProperties,
-//   useDeleteProperty,
-//   type PropertyStatus,
-//   type Property,
-// } from "@/hooks/owner/useOwnerApi";
-
-// import { toast } from "sonner";
-// import { Loader2, Pencil, Eye, Trash2, Plus } from "lucide-react";
-// import { Button } from "@/components/ui/button";
-// import { Badge } from "@/components/ui/badge";
-
-// // ── Tab Config ─────────────────────────────────────────────────────────────────
-// const TABS: { label: string; value: PropertyStatus | "ALL" }[] = [
-//   { label: "All",      value: "ALL"      },
-//   { label: "Approved", value: "APPROVED" },
-//   { label: "Pending",  value: "PENDING"  },
-//   { label: "Rejected", value: "REJECTED" },
-// ];
-
-// // ── Status Badge ───────────────────────────────────────────────────────────────
-// function StatusBadge({ status }: { status: PropertyStatus }) {
-//   const variants: Record<PropertyStatus, "default" | "secondary" | "destructive"> = {
-//     APPROVED: "default",
-//     PENDING:  "secondary",
-//     REJECTED: "destructive",
-//   };
-//   return (
-//     <Badge variant={variants[status] ?? "secondary"}>
-//       {status}
-//     </Badge>
-//   );
-// }
-
-// // ── Property Row / Card ────────────────────────────────────────────────────────
-// function PropertyCard({
-//   property,
-//   onDelete,
-//   deleting,
-// }: {
-//   property: Property;
-//   onDelete: (id: string) => void;
-//   deleting: boolean;
-// }) {
-//   const image = property.images?.[0] ?? "/placeholder.png";
-
-//   return (
-//     <div className="flex flex-col sm:flex-row gap-4 bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
-//       {/* Thumbnail */}
-//       <div className="w-full sm:w-36 h-28 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-//         <img
-//           src={image}
-//           alt={property.title}
-//           className="w-full h-full object-cover"
-//           onError={(e) => {
-//             (e.target as HTMLImageElement).src = "/placeholder.png";
-//           }}
-//         />
-//       </div>
-
-//       {/* Info */}
-//       <div className="flex-1 min-w-0 space-y-1">
-//         <div className="flex items-start justify-between gap-2">
-//           <h3 className="font-semibold text-gray-900 truncate text-sm">
-//             {property.title}
-//           </h3>
-//           <StatusBadge status={property.status} />
-//         </div>
-
-//         <p className="text-xs text-gray-500">
-//           {property.area}, {property.city}
-//         </p>
-
-//         <p className="text-xs text-gray-500">
-//           {property.bedrooms} bed · {property.bathrooms} bath
-//           {property.size ? ` · ${property.size} sqft` : ""}
-//         </p>
-
-//         <p className="font-bold text-blue-600 text-sm">
-//           ৳ {property.rentAmount.toLocaleString()}/month
-//         </p>
-
-//         <p className="text-xs text-gray-400">
-//           Type: {property.type.replace(/_/g, " ")} ·
-//           For: {property.availableFor}
-//         </p>
-//       </div>
-
-//       {/* Actions */}
-//       <div className="flex sm:flex-col gap-2 justify-end flex-shrink-0">
-//         <Link href={`/owner/properties/${property.id}`}>
-//           <Button variant="outline" size="sm" className="gap-1 text-xs w-full">
-//             <Eye size={13} /> View
-//           </Button>
-//         </Link>
-//         <Link href={`/owner/properties/${property.id}/edit`}>
-//           <Button variant="outline" size="sm" className="gap-1 text-xs w-full">
-//             <Pencil size={13} /> Edit
-//           </Button>
-//         </Link>
-//         <Button
-//           variant="destructive"
-//           size="sm"
-//           className="gap-1 text-xs w-full"
-//           disabled={deleting}
-//           onClick={() => {
-//             if (confirm("Are you sure you want to delete this property?")) {
-//               onDelete(property.id);
-//             }
-//           }}
-//         >
-//           {deleting ? (
-//             <Loader2 size={13} className="animate-spin" />
-//           ) : (
-//             <Trash2 size={13} />
-//           )}
-//           Delete
-//         </Button>
-//       </div>
-//     </div>
-//   );
-// }
-
-// // ── Empty State ────────────────────────────────────────────────────────────────
-// function EmptyState({ tab }: { tab: string }) {
-//   return (
-//     <div className="flex flex-col items-center justify-center py-24 text-center">
-//       <span className="text-5xl mb-4">🏠</span>
-//       <h3 className="text-lg font-semibold text-gray-700 mb-1">
-//         No properties found
-//       </h3>
-//       <p className="text-sm text-gray-400 max-w-xs">
-//         {tab === "ALL"
-//           ? "You haven't added any properties yet. Click the button below to add your first property."
-//           : `You have no ${tab.toLowerCase()} properties right now.`}
-//       </p>
-//       {tab === "ALL" && (
-//         <Link href="/owner/properties/new" className="mt-5">
-//           <Button className="gap-2">
-//             <Plus size={16} /> Add Your First Property
-//           </Button>
-//         </Link>
-//       )}
-//     </div>
-//   );
-// }
-
-// // ── Main Page ──────────────────────────────────────────────────────────────────
-// export default function OwnerPropertiesPage() {
-//   const [activeTab, setActiveTab] = useState<PropertyStatus | "ALL">("ALL");
-//   const [deletingId, setDeletingId] = useState<string | null>(null);
-
-//   // ✅ FIX: activeTab === "ALL" হলে status undefined পাঠাই (filter ছাড়া সব আসবে)
-//   const { data, isLoading, isError, refetch } = useOwnerProperties(
-//     activeTab === "ALL"
-//       ? undefined                           // ← কোনো filter নেই, সব property আসবে
-//       : { status: activeTab as PropertyStatus }
-//   );
-
-//   const { mutateAsync: deleteProperty } = useDeleteProperty();
-
-//   // ✅ FIX: data?.data handle করছি (meta এ total নাও থাকতে পারে)
-//   const properties: Property[] = data?.data ?? [];
-//   const total = data?.meta?.total ?? properties.length;
-
-//   const handleDelete = async (id: string) => {
-//     setDeletingId(id);
-//     try {
-//       await deleteProperty(id);
-//       toast.success("Property deleted successfully");
-//     } catch {
-//       toast.error("Failed to delete property");
-//     } finally {
-//       setDeletingId(null);
-//     }
-//   };
-
-//   return (
-//     <div className="min-h-screen bg-background">
-//       <div className="max-w-4xl mx-auto px-4 py-8">
-
-//         {/* ── Header ──────────────────────────────────────────────── */}
-//         <div className="flex items-center justify-between mb-6">
-//           <div>
-//             <h1 className="text-2xl font-bold text-gray-900">My Properties</h1>
-//             <p className="text-sm text-gray-500 mt-0.5">
-//               {isLoading
-//                 ? "Loading..."
-//                 : `${total} propert${total === 1 ? "y" : "ies"} found`}
-//             </p>
-//           </div>
-//           <Link href="/owner/properties/new">
-//             <Button className="gap-2">
-//               <Plus size={16} /> Add Property
-//             </Button>
-//           </Link>
-//         </div>
-
-//         {/* ── Tabs ────────────────────────────────────────────────── */}
-//         <div className="flex gap-0 border-b border-gray-200 mb-6">
-//           {TABS.map((tab) => (
-//             <button
-//               key={tab.value}
-//               onClick={() => setActiveTab(tab.value)}
-//               className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
-//                 activeTab === tab.value
-//                   ? "border-blue-600 text-blue-600"
-//                   : "border-transparent text-gray-500 hover:text-gray-700"
-//               }`}
-//             >
-//               {tab.label}
-//             </button>
-//           ))}
-//         </div>
-
-//         {/* ── Loading ──────────────────────────────────────────────── */}
-//         {isLoading && (
-//           <div className="space-y-4">
-//             {[1, 2, 3].map((i) => (
-//               <div
-//                 key={i}
-//                 className="h-36 bg-white rounded-xl border border-gray-200 animate-pulse"
-//               />
-//             ))}
-//           </div>
-//         )}
-
-//         {/* ── Error ────────────────────────────────────────────────── */}
-//         {isError && !isLoading && (
-//           <div className="text-center py-20 space-y-3">
-//             <p className="text-red-500 font-medium">
-//               ❌ Properties load করতে সমস্যা হয়েছে।
-//             </p>
-//             <Button variant="outline" onClick={() => refetch()}>
-//               Try Again
-//             </Button>
-//           </div>
-//         )}
-
-//         {/* ── Empty ────────────────────────────────────────────────── */}
-//         {!isLoading && !isError && properties.length === 0 && (
-//           <EmptyState tab={activeTab} />
-//         )}
-
-//         {/* ── Property List ─────────────────────────────────────────── */}
-//         {!isLoading && !isError && properties.length > 0 && (
-//           <div className="space-y-4">
-//             {properties.map((property) => (
-//               <PropertyCard
-//                 key={property.id}
-//                 property={property}
-//                 onDelete={handleDelete}
-//                 deleting={deletingId === property.id}
-//               />
-//             ))}
-//           </div>
-//         )}
-
-//       </div>
-//     </div>
-//   );
-// }
