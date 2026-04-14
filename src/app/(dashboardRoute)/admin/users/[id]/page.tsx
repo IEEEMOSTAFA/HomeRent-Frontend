@@ -23,10 +23,11 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import StatusBadge          from "../../_components/StatusBadge";
+// import StatusBadge          from "../../_components/StatusBadge";
 import { useAdminUsers, useBanUser, useVerifyOwner } from "@/hooks/admin/useAdminApi";
 import { useQuery }         from "@tanstack/react-query";
 import { apiFetch }         from "@/lib/api";
+import StatusBadge from "@/components/user/StatusBadge";
 
 // Fetch single user — using /api/users/:id if backend supports it,
 // otherwise fall back to finding from the list
