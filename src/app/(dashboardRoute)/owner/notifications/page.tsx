@@ -1,7 +1,7 @@
 "use client";
 // src/app/(dashboardRoute)/owner/notifications/page.tsx
 
-import { useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, RefreshCw, CheckCheck, Inbox } from "lucide-react";
 import { toast } from "sonner";
@@ -35,7 +35,7 @@ export default function NotificationsPage() {
 
   // Browser-only hooks
   useAOS();
-  useGsapStagger(headerRef);
+  useGsapStagger(headerRef as React.RefObject<HTMLDivElement>);
 
   const unread = notifications.filter((n) => !n.isRead).length;
   const todayNum = notifications.filter((n) => dayLabel(n.createdAt) === "Today").length;
@@ -876,4 +876,3 @@ export default function NotificationsPage() {
 //     </TooltipProvider>
 //   );
 // }
-

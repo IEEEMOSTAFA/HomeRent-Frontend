@@ -1,21 +1,19 @@
 "use client";
-// src/components/user/UserMobileSidebar.tsx
+// src/components/modules/user/UserMobileSidebar.tsx
 
 import { useState } from "react";
 import { Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { UserSidebar } from "./UserSidebar";
+// import UserSidebar from "./UserSidebar";
+import { RouteItem } from "@/routes/userRoutes";
+import UserSidebar from "@/components/user/Usersidebar";
 
 interface UserMobileSidebarProps {
-  user: {
-    name: string;
-    email: string;
-    image?: string;
-  };
+  routes: RouteItem[];
 }
 
-export function UserMobileSidebar({ user }: UserMobileSidebarProps) {
+export function UserMobileSidebar({ routes }: UserMobileSidebarProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -26,7 +24,7 @@ export function UserMobileSidebar({ user }: UserMobileSidebarProps) {
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="w-64 p-0">
-        <UserSidebar user={user} />
+        <UserSidebar routes={routes} />
       </SheetContent>
     </Sheet>
   );

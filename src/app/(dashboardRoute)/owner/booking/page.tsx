@@ -45,7 +45,7 @@ export default function OwnerBookingsPage() {
   const bookings = data?.data ?? [];
 
   // ✅ Backend may return pagination or meta — support both
-  const pagination = (data as any)?.pagination ?? data?.meta;
+  const pagination = (data as any)?.pagination ?? data?.pagination;
 
   function handleRespond(id: string, status: "ACCEPTED" | "DECLINED") {
     respond(

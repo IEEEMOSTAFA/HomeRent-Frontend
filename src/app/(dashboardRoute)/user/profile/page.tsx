@@ -13,10 +13,11 @@ import { Button }    from "@/components/ui/button";
 import { Input }     from "@/components/ui/input";
 import { Label }     from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge }     from "@/components/ui/badge";
+// import { Badge }     from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton }  from "@/components/ui/skeleton";
 import { useCurrentUser, useUpdateProfile } from "@/hooks/user/useUserApi";
+import { Badge } from "@/components/ui/badge";
 
 const schema = z.object({
   name:  z.string().min(2, "Min 2 chars"),
@@ -77,7 +78,7 @@ export default function UserProfilePage() {
       <Card className="shadow-none">
         <CardContent className="p-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-2xl font-bold flex-shrink-0">
+            <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-2xl font-bold shrink-0">
               {user?.name?.[0]?.toUpperCase() ?? "U"}
             </div>
             <div>
@@ -87,7 +88,7 @@ export default function UserProfilePage() {
                 <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50 text-[10px]">
                   {user?.role ?? "USER"}
                 </Badge>
-                {user?.emailVerified && (
+                {user?.email  && (
                   <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50 text-[10px] gap-1">
                     <CheckCircle size={9} /> Verified
                   </Badge>
@@ -105,7 +106,7 @@ export default function UserProfilePage() {
 
           <InfoRow icon={<Mail size={14} />}     label="Email"         value={user?.email} />
           <InfoRow icon={<Shield size={14} />}   label="Role"          value={user?.role} />
-          <InfoRow icon={<CheckCircle size={14} />} label="Email Verified" value={user?.emailVerified ? "Yes" : "No"} />
+          <InfoRow icon={<CheckCircle size={14} />} label="Email Verified" value={user?.email  ? "Yes" : "No"} />
           <InfoRow icon={<Calendar size={14} />} label="Member Since"  value={user?.createdAt ? new Date(user.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "—"} />
         </CardContent>
       </Card>
@@ -129,7 +130,7 @@ export default function UserProfilePage() {
           {!editing ? (
             <div className="space-y-4">
               <InfoRow icon={<></>} label="Display Name" value={user?.name ?? "—"} />
-              <InfoRow icon={<></>} label="Avatar URL"   value={user?.image ? <span className="text-xs text-muted-foreground truncate max-w-[180px] block">{user.image}</span> : "Not set"} />
+              <InfoRow icon={<></>} label="Avatar URL"   value={user?.image ? <span className="text-xs text-muted-foreground truncate max-w-45 block">{user.image}</span> : "Not set"} />
             </div>
           ) : (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

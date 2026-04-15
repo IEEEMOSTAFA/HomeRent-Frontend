@@ -1,7 +1,9 @@
+"use client"
 // src/hooks/user/useUserApi.ts
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
+import { User } from "../../types,/user";
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
@@ -78,7 +80,6 @@ export interface UserPayment {
   refundedAt: string | null;
   createdAt: string;
   updatedAt: string;
-  // ✅ Added: booking + property info used in payment history page
   booking?: {
     id: string;
     property?: {
@@ -149,7 +150,7 @@ export interface CreateReviewInput {
   comment?: string;
 }
 
-export interface Notification {
+export interface UserNotification {
   id: string;
   userId: string;
   bookingId: string | null;
@@ -181,6 +182,7 @@ export interface BookingListResponse {
   };
 }
 
+// ✅ একটাই PaginatedResponse interface — duplicate নেই
 export interface PaginatedResponse<T> {
   data: T[];
   meta: { total: number; page: number; limit: number; totalPages: number };
@@ -191,16 +193,17 @@ export interface CreatePaymentIntentResponse {
   paymentId: string;
 }
 
-// ─── RESPONSE UNWRAPPER ─────────────────────────────────────────────────────
+// ─── RESPONSE UNWRAPPER ──────────────────────────────────────────────────────
 
-const unwrap = <T>(response: any): T => {
-  if (response?.success !== undefined && response.data !== undefined) {
-    return response.data as T;
+const unwrap = <T>(response: unknown): T => {
+  if (
+    typeof response === "object" &&
+    response !== null &&
+    "data" in response
+  ) {
+    return (response as { data: T }).data;
   }
-  if (response?.data !== undefined) {
-    return response.data as T;
-  }
-  return response as T;
+  throw new Error("Invalid response format");
 };
 
 // ─── USER PROFILE ─────────────────────────────────────────────────────────────
@@ -208,7 +211,7 @@ const unwrap = <T>(response: any): T => {
 export function useCurrentUser() {
   return useQuery({
     queryKey: ["user", "me"],
-    queryFn: () => apiFetch("/users/me").then(unwrap<any>),
+    queryFn: () => apiFetch<{ data: User }>('/users/me').then(unwrap<User>),
   });
 }
 
@@ -279,12 +282,11 @@ export function useMyBookings(params?: {
   return useQuery<BookingListResponse>({
     queryKey: ["user", "bookings", params],
     queryFn: () =>
-      apiFetch<any>(`/bookings?${q}`).then((res) => {
-        const raw = res?.data;
-        const isNested = raw && !Array.isArray(raw) && Array.isArray(raw?.data);
+      apiFetch<{ data: BookingListResponse }>(`/bookings?${q}`).then((res) => {
+        const raw = res.data;
         return {
-          data: isNested ? raw.data : (Array.isArray(raw) ? raw : []),
-          pagination: isNested ? raw.pagination : (res?.pagination ?? res?.meta ?? {}),
+          data: raw.data,
+          pagination: raw.pagination,
         };
       }),
     retry: 1,
@@ -342,7 +344,13 @@ export function useCreatePaymentIntent() {
 export function useConfirmPayment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ paymentId, stripePaymentIntentId }: { paymentId: string; stripePaymentIntentId: string }) =>
+    mutationFn: ({
+      paymentId,
+      stripePaymentIntentId,
+    }: {
+      paymentId: string;
+      stripePaymentIntentId: string;
+    }) =>
       apiFetch("/payments/confirm", {
         method: "POST",
         body: JSON.stringify({ paymentId, stripePaymentIntentId }),
@@ -355,41 +363,36 @@ export function useConfirmPayment() {
   });
 }
 
-// ✅ FIXED: Robust unwrapping — handles all backend response shapes
 export function useMyPayments(params?: { page?: number }) {
   const q = new URLSearchParams();
   if (params?.page) q.set("page", String(params.page));
 
-  return useQuery<PaginatedResponse<UserPayment>>({
+  return useQuery({
     queryKey: ["user", "payments", params],
     queryFn: async () => {
-      const res = await apiFetch<any>(`/payments/my-payments?${q}`);
+      // apiFetch → res.json() করে return করে
+      // Backend পাঠায়: { data: [...], pagination: {...} }
+      // তাই সরাসরি type করো:
+      const res = await apiFetch<{
+        data: UserPayment[];
+        pagination: {
+          total: number;
+          page: number;
+          pageSize: number;
+          totalPages: number;
+        };
+      }>(`/payments/my-payments?${q}`);
 
-      // Shape 1: { success, data: { data: [...], meta: {} } }
-      if (Array.isArray(res?.data?.data)) {
-        return { data: res.data.data, meta: res.data.meta ?? res.data.pagination ?? {} };
-      }
-
-      // Shape 2: { success, data: [...], meta: {} }
-      if (Array.isArray(res?.data)) {
-        return { data: res.data, meta: res.meta ?? {} };
-      }
-
-      // Shape 3: already a PaginatedResponse { data: [...], meta: {} }
-      if (Array.isArray(res?.payments)) {
-        return { data: res.payments, meta: res.meta ?? {} };
-      }
-
-      // Shape 4: bare array
-      if (Array.isArray(res)) {
-        return { data: res, meta: { total: res.length, page: 1, limit: res.length, totalPages: 1 } };
-      }
-
-      // Fallback: return empty
-      return { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
+      return {
+        data: res.data ?? [],        // ✅ res.data — একবারই .data
+        meta: {
+          total: res.pagination?.total ?? 0,
+          page: res.pagination?.page ?? 1,
+          limit: res.pagination?.pageSize ?? 20,
+          totalPages: res.pagination?.totalPages ?? 1,
+        },
+      };
     },
-    retry: 1,
-    staleTime: 30000,
   });
 }
 
@@ -418,19 +421,13 @@ export function useCreateReview() {
 // ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
 
 export function useMyNotifications() {
-  return useQuery<Notification[]>({
+  return useQuery<UserNotification[]>({
     queryKey: ["user", "notifications"],
     queryFn: async () => {
-      const res = await apiFetch<any>("/notifications");
-
-      // Backend returns: { success, data: { notifications: [], total, unreadCount } }
-      if (Array.isArray(res?.data?.notifications)) return res.data.notifications;
-
-      // fallback
-      if (Array.isArray(res?.notifications)) return res.notifications;
+      const res = await apiFetch<{ data: { notifications: UserNotification[] } }>("/notifications");
+      if (Array.isArray(res.data?.notifications)) return res.data.notifications;
       if (Array.isArray(res?.data)) return res.data;
       if (Array.isArray(res)) return res;
-
       return [];
     },
     retry: 1,
@@ -474,10 +471,20 @@ export function useMarkAllNotificationsRead() {
 
 
 
+
+
+
+
+
+
+
+
+// // "use client"
 // // src/hooks/user/useUserApi.ts
 
 // import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 // import { apiFetch } from "@/lib/api";
+// import { User } from "../../types,/user";
 
 // // ─── TYPES ───────────────────────────────────────────────────────────────────
 
@@ -554,6 +561,17 @@ export function useMarkAllNotificationsRead() {
 //   refundedAt: string | null;
 //   createdAt: string;
 //   updatedAt: string;
+//   // ✅ Added: booking + property info used in payment history page
+//   booking?: {
+//     id: string;
+//     property?: {
+//       id: string;
+//       title: string;
+//       city: string;
+//       area: string;
+//       images: string[];
+//     };
+//   };
 // }
 
 // export interface Review {
@@ -614,7 +632,7 @@ export function useMarkAllNotificationsRead() {
 //   comment?: string;
 // }
 
-// export interface Notification {
+// export interface UserNotification {
 //   id: string;
 //   userId: string;
 //   bookingId: string | null;
@@ -658,14 +676,15 @@ export function useMarkAllNotificationsRead() {
 
 // // ─── RESPONSE UNWRAPPER ─────────────────────────────────────────────────────
 
-// const unwrap = <T>(response: any): T => {
-//   if (response?.success !== undefined && response.data !== undefined) {
-//     return response.data as T;
+// const unwrap = <T>(response: unknown): T => {
+//   if (
+//     typeof response === "object" &&
+//     response !== null &&
+//     "data" in response
+//   ) {
+//     return (response as { data: T }).data;
 //   }
-//   if (response?.data !== undefined) {
-//     return response.data as T;
-//   }
-//   return response as T;
+//   throw new Error("Invalid response format");
 // };
 
 // // ─── USER PROFILE ─────────────────────────────────────────────────────────────
@@ -673,7 +692,7 @@ export function useMarkAllNotificationsRead() {
 // export function useCurrentUser() {
 //   return useQuery({
 //     queryKey: ["user", "me"],
-//     queryFn: () => apiFetch("/users/me").then(unwrap<any>),
+//     queryFn: () => apiFetch<{ data: User }>('/users/me').then(unwrap<User>),
 //   });
 // }
 
@@ -743,18 +762,14 @@ export function useMarkAllNotificationsRead() {
 
 //   return useQuery<BookingListResponse>({
 //     queryKey: ["user", "bookings", params],
-//     // queryFn: () => apiFetch(`/bookings?${q}`).then(unwrap<BookingListResponse>),
-//   queryFn: () =>
-//   apiFetch<any>(`/bookings?${q}`).then((res) => {
-//     // Backend: { success, data: [...], meta/pagination: {} }
-//     // অথবা:   { success, data: { data: [...], pagination: {} } }
-//     const raw = res?.data;
-//     const isNested = raw && !Array.isArray(raw) && Array.isArray(raw?.data);
-//     return {
-//       data: isNested ? raw.data : (Array.isArray(raw) ? raw : []),
-//       pagination: isNested ? raw.pagination : (res?.pagination ?? res?.meta ?? {}),
-//     };
-//   }),
+//     queryFn: () =>
+//       apiFetch<{ data: BookingListResponse }>(`/bookings?${q}`).then((res) => {
+//         const raw = res.data;
+//         return {
+//           data: raw.data,
+//           pagination: raw.pagination,
+//         };
+//       }),
 //     retry: 1,
 //     staleTime: 30000,
 //   });
@@ -802,16 +817,12 @@ export function useMarkAllNotificationsRead() {
 // export function useCreatePaymentIntent() {
 //   return useMutation({
 //     mutationFn: (bookingId: string) =>
-//       apiFetch("/payments/create-intent", {   // ← unwrap সরিয়ে দাও
+//       apiFetch("/payments/create-intent", {
 //         method: "POST",
 //         body: JSON.stringify({ bookingId }),
 //       }),
 //   });
 // }
-
-
-
-
 
 // export function useConfirmPayment() {
 //   const qc = useQueryClient();
@@ -829,23 +840,52 @@ export function useMarkAllNotificationsRead() {
 //   });
 // }
 
+// // export function useMyPayments(params?: { page?: number }) {
+// //   const q = new URLSearchParams();
+// //   if (params?.page) q.set("page", String(params.page));
+
+// //   return useQuery<PaginatedResponse<UserPayment>>({
+// //     queryKey: ["user", "payments", params],
+// //     queryFn: () => apiFetch(`/payments/my-payments?${q}`).then(unwrap<PaginatedResponse<UserPayment>>),
+// //   });
+// // }
+
+// // ─── REVIEWS ──────────────────────────────────────────────────────────────────
+// // useUserApi.ts এ এই interface টা আছে:
+// export interface PaginatedResponse<T> {
+//   data: T[];
+//   meta: { total: number; page: number; limit: number; totalPages: number };
+// }
+
+// // কিন্তু backend "pagination" key পাঠায়, "meta" না
+// // তাই নতুন interface বানান অথবা manually map করুন:
+
 // export function useMyPayments(params?: { page?: number }) {
 //   const q = new URLSearchParams();
 //   if (params?.page) q.set("page", String(params.page));
 
-//   return useQuery<PaginatedResponse<UserPayment>>({
+//   return useQuery({
 //     queryKey: ["user", "payments", params],
-//     queryFn: () => apiFetch(`/payments/my-payments?${q}`).then(unwrap<PaginatedResponse<UserPayment>>),
+//     queryFn: async () => {
+//       const res = await apiFetch<{ data: { data: UserPayment[]; pagination: any } }>(
+//         `/payments/my-payments?${q}`
+//       );
+//       const raw = res.data; // ← apiFetch এর outer wrapper
+//       return {
+//         data: raw.data,           // payments array
+//         meta: {
+//           total: raw.pagination?.total ?? 0,
+//           page: raw.pagination?.page ?? 1,
+//           limit: raw.pagination?.pageSize ?? 20,
+//           totalPages: raw.pagination?.totalPages ?? 1,
+//         },
+//       };
+//     },
 //   });
 // }
-
-// // ─── REVIEWS ──────────────────────────────────────────────────────────────────
-
 // export function useMyReviews() {
 //   return useQuery<PaginatedResponse<Review>>({
 //     queryKey: ["user", "reviews"],
-//     // queryFn: () => apiFetch("/reviews?userId=me").then(unwrap<PaginatedResponse<Review>>),
-//     // queryFn: () => apiFetch("/reviews/my").then(unwrap<PaginatedResponse<Review>>),
 //     queryFn: () => apiFetch("/reviews/my").then(unwrap<PaginatedResponse<Review>>),
 //   });
 // }
@@ -865,27 +905,16 @@ export function useMarkAllNotificationsRead() {
 
 // // ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
 
-// // export function useMyNotifications() {
-// //   return useQuery<Notification[]>({
-// //     queryKey: ["user", "notifications"],
-// //     queryFn: () => apiFetch("/notifications").then(unwrap<Notification[]>),
-// //     retry: 1,
-// //     staleTime: 30000,
-// //   });
-// // }
-
-
 // export function useMyNotifications() {
-//   return useQuery<Notification[]>({
+//   return useQuery<UserNotification[]>({
 //     queryKey: ["user", "notifications"],
 //     queryFn: async () => {
-//       const res = await apiFetch<any>("/notifications");
+//       const res = await apiFetch<{ data: { notifications: UserNotification[] } }>("/notifications");
 
-//       // Backend returns: { success, data: { notifications: [], total, unreadCount } }
-//       if (Array.isArray(res?.data?.notifications)) return res.data.notifications;
+//       // Correctly access notifications
+//       if (Array.isArray(res.data?.notifications)) return res.data.notifications;
 
 //       // fallback
-//       if (Array.isArray(res?.notifications)) return res.notifications;
 //       if (Array.isArray(res?.data)) return res.data;
 //       if (Array.isArray(res)) return res;
 
@@ -895,10 +924,6 @@ export function useMarkAllNotificationsRead() {
 //     staleTime: 30000,
 //   });
 // }
-
-
-
-
 
 // export function useMarkNotificationRead() {
 //   const qc = useQueryClient();

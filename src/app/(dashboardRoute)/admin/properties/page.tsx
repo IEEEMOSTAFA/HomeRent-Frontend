@@ -39,7 +39,7 @@ export default function AdminAllPropertiesPage() {
   const { mutate: deleteProperty, isPending: deleting } = useAdminDeleteProperty();
 
   const properties = data?.data ?? [];
-  const meta = data?.meta;
+  const pagination = data?.pagination; // ✅ meta → pagination
 
   function handleDelete(id: string) {
     deleteProperty(id, {
@@ -53,7 +53,7 @@ export default function AdminAllPropertiesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">All Properties</h1>
-          <p className="text-sm text-muted-foreground mt-1">{meta?.total ?? 0} properties on platform</p>
+          <p className="text-sm text-muted-foreground mt-1">{pagination?.total ?? 0} properties on platform</p>
         </div>
         <Link href="/admin/properties/pending">
           <Button variant="outline" size="sm" className="text-xs">View Pending →</Button>
@@ -158,7 +158,7 @@ export default function AdminAllPropertiesPage() {
         </div>
       )}
 
-      {meta && meta.totalPages > 1 && (
+      {pagination && pagination.totalPages > 1 && (
         <div className="flex items-center justify-center gap-3">
           <Button
             variant="outline"
@@ -168,12 +168,12 @@ export default function AdminAllPropertiesPage() {
           >
             Previous
           </Button>
-          <span className="text-sm text-muted-foreground">{meta.page} / {meta.totalPages}</span>
+          <span className="text-sm text-muted-foreground">{pagination.page} / {pagination.totalPages}</span>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
-            disabled={page === meta.totalPages}
+            onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+            disabled={page === pagination.totalPages}
           >
             Next
           </Button>

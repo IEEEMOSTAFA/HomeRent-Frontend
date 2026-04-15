@@ -41,7 +41,7 @@ export default function AdminUsersPage() {
   const { mutate: banUser, isPending: banning } = useBanUser();
 
   const users = data?.data ?? [];
-  const meta  = data?.meta;
+  const pagination = data?.pagination;
 
   function handleBan(id: string, isBanned: boolean) {
     banUser(
@@ -57,7 +57,7 @@ export default function AdminUsersPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">All Users</h1>
-        <p className="text-sm text-muted-foreground mt-1">{meta?.total ?? 0} registered users</p>
+        <p className="text-sm text-muted-foreground mt-1">{pagination?.total ?? 0} registered users</p>
       </div>
 
       {/* Filters */}
@@ -180,11 +180,11 @@ export default function AdminUsersPage() {
       )}
 
       {/* Pagination */}
-      {meta && meta.totalPages > 1 && (
+      {pagination && pagination.totalPages > 1 && (
         <div className="flex items-center justify-center gap-3">
           <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>Previous</Button>
-          <span className="text-sm text-muted-foreground">{meta.page} / {meta.totalPages}</span>
-          <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))} disabled={page === meta.totalPages}>Next</Button>
+          <span className="text-sm text-muted-foreground">{pagination.page} / {pagination.totalPages}</span>
+          <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))} disabled={page === pagination.totalPages}>Next</Button>
         </div>
       )}
     </div>

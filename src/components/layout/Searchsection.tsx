@@ -5,8 +5,20 @@ import Link from "next/link";
 import { Search, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
-import { ApiResponse, Category } from "@/types,/admin";
-// import type { ApiResponse, Category } from "@/types/admin";
+// Define the `ApiResponse` type locally
+interface ApiResponse<T> {
+  data: T;
+  message: string;
+}
+
+// Define the `Category` type locally
+interface Category {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  isActive: boolean;
+}
 
 // Skeleton loader for categories
 function CategorySkeleton() {
@@ -35,9 +47,12 @@ export default function SearchSection() {
   useEffect(() => {
     apiFetch<ApiResponse<Category[]>>("/categories")
       .then((res) => {
-        // শুধু active categories দেখাবো
-        const active = res.data.filter((cat) => cat.isActive);
-        setCategories(active);
+        if ("data" in res) { // Ensure `data` exists on the response
+          const active = res.data.filter((cat: Category) => cat.isActive);
+          setCategories(active);
+        } else {
+          console.error("Unexpected response format", res);
+        }
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -132,5 +147,3 @@ export default function SearchSection() {
     </>
   );
 }
-
-

@@ -19,12 +19,14 @@ interface Blog {
     image?: string;
   };
 }
+export const dynamic = "force-dynamic"; // ✅ এই একটা লাইন যোগ করো
+
 
 async function getBlogs(): Promise<Blog[]> {
   try {
     const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/blog`, {
       cache: "no-store",        // Always fresh data
-      next: { revalidate: 3600 }, // Optional: revalidate every hour if you want ISR later
+      // next: { revalidate: 3600 }, // Optional: revalidate every hour if you want ISR later
     });
 
     if (!res.ok) {

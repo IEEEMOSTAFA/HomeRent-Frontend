@@ -1,3 +1,10 @@
+
+
+
+
+
+
+
 "use client";
 // src/app/(dashboardRoute)/admin/users/[id]/page.tsx
 // API: PATCH /api/users/:id/ban
@@ -27,7 +34,8 @@ import {
 import { useAdminUsers, useBanUser, useVerifyOwner } from "@/hooks/admin/useAdminApi";
 import { useQuery }         from "@tanstack/react-query";
 import { apiFetch }         from "@/lib/api";
-import StatusBadge from "@/components/user/StatusBadge";
+import StatusBadge from "@/components/Admin/StatusBadge";
+// import StatusBadge from "@/components/user/StatusBadge";
 
 // Fetch single user — using /api/users/:id if backend supports it,
 // otherwise fall back to finding from the list

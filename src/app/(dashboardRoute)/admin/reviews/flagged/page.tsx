@@ -1,7 +1,7 @@
 "use client";
 // src/app/(dashboardRoute)/admin/reviews/flagged/page.tsx
 
-import { Star, Eye, EyeOff, Flag, Trash2 } from "lucide-react";
+import { Star, Eye, EyeOff, Flag } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +27,6 @@ export default function FlaggedReviewsPage() {
 
   const reviews = data?.data ?? [];
 
-  // ✅ Fix: isVisible toggle সঠিকভাবে করা হচ্ছে
   function handleVisibility(id: string, currentIsVisible: boolean) {
     const newVisibility = !currentIsVisible;
     setVisibility(
@@ -45,7 +44,7 @@ export default function FlaggedReviewsPage() {
       <div>
         <h1 className="text-2xl font-bold">Flagged Reviews</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {data?.meta?.total ?? 0} reviews flagged by owners
+          {data?.pagination?.total ?? 0} reviews flagged by owners {/* ✅ meta → pagination */}
         </p>
       </div>
 
@@ -77,7 +76,6 @@ export default function FlaggedReviewsPage() {
                     </div>
                     <div>
                       <p className="text-sm font-semibold">{r.user.name}</p>
-                      {/* ✅ city, area এখন backend থেকে আসবে */}
                       <p className="text-xs text-muted-foreground">
                         {r.property.title} — {r.property.area}, {r.property.city}
                       </p>
@@ -95,7 +93,7 @@ export default function FlaggedReviewsPage() {
                     </div>
                   </div>
 
-                  {/* ✅ Action Button — সঠিকভাবে toggle হচ্ছে */}
+                  {/* Action Button */}
                   <Button
                     variant="outline"
                     size="sm"
@@ -134,5 +132,3 @@ export default function FlaggedReviewsPage() {
     </div>
   );
 }
-
-

@@ -133,7 +133,7 @@ const scaleIn: Variants = {
 // ─────────────────────────────────────────────────────────────────────────────
 // Animated counter (Anime.js v4)
 // ─────────────────────────────────────────────────────────────────────────────
-function AnimatedCounter({ to, suffix, isFloat }: StatItem) {
+function AnimatedCounter({ value, suffix, isFloat }: StatItem) {
   const ref     = useRef<HTMLSpanElement>(null);
   const inView  = useInView(ref, { once: true, margin: "-60px" });
   const started = useRef(false);
@@ -143,7 +143,7 @@ function AnimatedCounter({ to, suffix, isFloat }: StatItem) {
     started.current = true;
     const obj = { value: 0 };
     animeAnimate(obj, {
-      value: to,
+      value: value,
       duration: 1800,
       ease: "easeOutExpo",
       onUpdate() {
@@ -154,7 +154,7 @@ function AnimatedCounter({ to, suffix, isFloat }: StatItem) {
         }
       },
     });
-  }, [inView, to, suffix, isFloat]);
+  }, [inView, value, suffix, isFloat]);
 
   return (
     <span ref={ref} className="tabular-nums">
@@ -1033,16 +1033,3 @@ export default function Animation() {
 //     </>
 //   );
 // }
-
-
-
-
-
-
-
-
-
-
-
-
-

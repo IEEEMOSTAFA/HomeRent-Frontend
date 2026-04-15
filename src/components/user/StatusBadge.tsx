@@ -1,4 +1,4 @@
-// src/app/(dashboardRoute)/user/_components/StatusBadge.tsx
+"use client";
 
 import { Badge }  from "@/components/ui/badge";
 import { cn }     from "@/lib/utils";

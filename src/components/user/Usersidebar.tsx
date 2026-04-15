@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useMyNotifications } from "@/hooks/user/useUserApi";
 import { RouteItem } from "@/routes/userRoutes";
+import { UserNotification } from "@/hooks/user/useUserApi";
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   "Dashboard":          <LayoutDashboard size={16} />,
@@ -28,22 +29,16 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 
 export default function UserSidebar({ routes }: { routes: RouteItem[] }) {
   const pathname = usePathname();
-  const { data: notificationsData, isLoading } = useMyNotifications();
+  const { data: notificationsData } = useMyNotifications();
 
-  // Safe handling: notificationsData যদি array না হয়, তাহলে খালি array নাও
-  const notifications = Array.isArray(notificationsData) 
-    ? notificationsData 
-    : (notificationsData?.data && Array.isArray(notificationsData.data) 
-        ? notificationsData.data 
-        : []);
-
-  const unread = notifications.filter((n: any) => !n.isRead).length;
+  const notifications = notificationsData || [];
+  const unread = notifications.filter((n: UserNotification) => !n.isRead).length;
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-background border-r flex flex-col z-40">
       {/* Brand */}
       <div className="px-5 py-4 flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
+        <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
           <Building2 size={15} className="text-white" />
         </div>
         <div>

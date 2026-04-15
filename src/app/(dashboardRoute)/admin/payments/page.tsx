@@ -40,7 +40,7 @@ export default function AdminPaymentsPage() {
   const { mutate: refundPayment, isPending: refunding } = useRefundPayment();
 
   const payments = data?.data ?? [];
-  const meta = data?.meta;
+  const pagination = data?.pagination; // ✅ meta → pagination
 
   function handleRefundSubmit() {
     if (!refundTarget || !refundReason.trim()) {
@@ -64,7 +64,7 @@ export default function AdminPaymentsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Payments</h1>
-        <p className="text-sm text-muted-foreground mt-1">{meta?.total ?? 0} transactions on platform</p>
+        <p className="text-sm text-muted-foreground mt-1">{pagination?.total ?? 0} transactions on platform</p>
       </div>
 
       <Tabs value={statusFilter} onValueChange={(v) => { setStatusFilter(v as typeof statusFilter); setPage(1); }}>
@@ -154,11 +154,11 @@ export default function AdminPaymentsPage() {
         </Card>
       )}
 
-      {meta && meta.totalPages > 1 && (
+      {pagination && pagination.totalPages > 1 && (
         <div className="flex items-center justify-center gap-3">
           <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>Previous</Button>
-          <span className="text-sm text-muted-foreground">{meta.page} / {meta.totalPages}</span>
-          <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))} disabled={page === meta.totalPages}>Next</Button>
+          <span className="text-sm text-muted-foreground">{pagination.page} / {pagination.totalPages}</span>
+          <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))} disabled={page === pagination.totalPages}>Next</Button>
         </div>
       )}
 

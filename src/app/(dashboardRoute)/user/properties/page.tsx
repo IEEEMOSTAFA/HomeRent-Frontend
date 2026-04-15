@@ -47,7 +47,7 @@ export default function BrowsePropertiesPage() {
   });
 
   const properties = data?.data ?? [];
-  const meta       = data?.meta;
+  const pagination = data?.meta ?? data?.meta; // ✅ meta → pagination
 
   function handleSearch() {
     setPage(1);
@@ -74,7 +74,7 @@ export default function BrowsePropertiesPage() {
       <div>
         <h1 className="text-2xl font-bold">Browse Properties</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {meta?.total ?? 0} approved properties available
+          {pagination?.total ?? 0} approved properties available
         </p>
       </div>
 
@@ -201,11 +201,11 @@ export default function BrowsePropertiesPage() {
       )}
 
       {/* Pagination */}
-      {meta && meta.totalPages > 1 && (
+      {pagination && pagination.totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 pt-2">
           <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>Previous</Button>
-          <span className="text-sm text-muted-foreground">{meta.page} / {meta.totalPages}</span>
-          <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))} disabled={page === meta.totalPages}>Next</Button>
+          <span className="text-sm text-muted-foreground">{pagination.page} / {pagination.totalPages}</span>
+          <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))} disabled={page === pagination.totalPages}>Next</Button>
         </div>
       )}
 

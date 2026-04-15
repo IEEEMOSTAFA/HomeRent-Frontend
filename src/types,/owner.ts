@@ -1,18 +1,20 @@
+// test file :
 // ============================================================
 // types/owner.ts
 // RentHome — OWNER Role (Landlord / Property Poster) Types
 // Routes: /api/owner/*, /api/ai/describe, /api/ai/price-hint
 // ============================================================
 
+import { AvailableFor, Booking, PropertyStatus, PropertyType } from "@/hooks/owner/useOwnerApi";
 import type { AuthUser } from "./auth";
 import type {
-  PropertyType,
-  AvailableFor,
-  PropertyStatus,
+  // PropertyType,
+  // AvailableFor,
+  // PropertyStatus,
   BookingStatus,
   Property,
   Review,
-  Booking,
+  
 } from "./user";
 
 // ─── OWNER PROFILE ────────────────────────────────────────────────────────────
@@ -104,7 +106,7 @@ export interface CreatePropertyInput {
   size?: number;                // sqft, optional
 
   // Pricing
-  rentAmount: number;
+  rent: number;                 // FIX: was `rentAmount` — correct field is `rent` (matches Property)
   advanceDeposit?: number;
   bookingFee?: number;
   isNegotiable?: boolean;
@@ -147,15 +149,34 @@ export interface PaginatedOwnerProperties {
 /**
  * OwnerBooking — Owner-এর property-র booking (tenant info সহ)
  * GET /api/owner/bookings
+ *
+ * FIX: `Booking.property` is typed as the full `Property` object in the base
+ *      interface, so overriding it with a narrower `Pick` causes an
+ *      incompatibility error. We use `Omit` to drop the base `property` field
+ *      and re-declare it with only the fields the owner dashboard needs.
+ *      `rentAmount` → `rent` to match the actual Property field name.
  */
-export interface OwnerBooking extends Booking {
+// FIX: Booking.property is typed as full `Property`. Overriding it with a
+//      narrower Pick inside `extends Booking` causes an incompatibility error.
+//      Solution: Omit the conflicting `property` key from Booking, then
+//      re-declare it with only the fields the owner dashboard needs.
+// export interface OwnerBooking extends Omit<Booking, "property"> {
+//   user: Pick<AuthUser, "id" | "name" | "email" | "image">;
+//   property: Pick<
+//     Property,
+//     "id" | "title" | "images" | "city" | "area" | "rentAmount"
+//   >;
+// }
+
+
+export interface OwnerBooking extends Omit<Booking, "property"> {
   user: Pick<AuthUser, "id" | "name" | "email" | "image">;
+  
   property: Pick<
     Property,
-    "id" | "title" | "images" | "city" | "area" | "rentAmount"
+    "id" | "title" | "images" | "city" | "area" | "rent"   // ← rentAmount → rent
   >;
 }
-
 /**
  * UpdateBookingStatusInput — PATCH /api/owner/bookings/:id
  * Owner শুধু ACCEPTED অথবা DECLINED করতে পারবে
@@ -224,7 +245,7 @@ export interface AiDescribeInput {
   bathrooms: number;
   size?: number;
   availableFor: AvailableFor;
-  rentAmount: number;
+  rent: number;                 // FIX: was `rentAmount` — correct field is `rent`
   amenities?: string[];         // ["GAS", "LIFT", "PARKING", "GENERATOR"]
 }
 
@@ -257,3 +278,23 @@ export interface AiPriceHintResponse {
   marketAverage: number;        // Database থেকে similar properties-এর average
   reasoning?: string;           // AI-এর explanation
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

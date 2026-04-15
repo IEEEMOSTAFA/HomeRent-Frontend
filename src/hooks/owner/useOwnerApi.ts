@@ -1,3 +1,4 @@
+"use client"
 // src/hooks/user/useUserApi.ts
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -169,9 +170,9 @@ export interface CreatePaymentIntentResponse {
 // ─── USER PROFILE ─────────────────────────────────────────────────────────────
 
 export function useCurrentUser() {
-  return useQuery({
+  return useQuery<{ id: string; name: string; email: string; image?: string }>({
     queryKey: ["user", "me"],
-    queryFn: () => apiFetch<any>("/users/me"),
+    queryFn: () => apiFetch<{ id: string; name: string; email: string; image?: string }>("/users/me"),
   });
 }
 
@@ -245,10 +246,8 @@ export function useOwnerProfile() {
   return useQuery<OwnerProfile>({
     queryKey: ["owner", "profile"],
     queryFn: async () => {
-      const res = await apiFetch<any>("/owner/profile");
-      console.log("👤 Owner profile raw:", res);
-      // Backend: { success, data: { ...profile } }
-      return res?.data ?? res;
+      const res = await apiFetch<{ data: OwnerProfile }>("/owner/profile");
+      return res.data; // Extract the `data` property
     },
     retry: 1,
     staleTime: 30000,
@@ -269,13 +268,6 @@ export function useUpdateOwnerProfile() {
     },
   });
 }
-
-
-
-
-
-
-
 
 // ─── OWNER PROPERTIES ─────────────────────────────────────────────────────────
 
@@ -322,65 +314,13 @@ export function useOwnerProperties(params?: {
   return useQuery<PaginatedResponse<Property>>({
     queryKey: ["owner", "properties", params],
     queryFn: async () => {
-      const res = await apiFetch<any>(`/owner/properties?${q}`);
-
-      // ✅ DEBUG — browser console এ দেখো কী আসছে
-      console.log("🏠 Owner properties raw:", JSON.stringify(res, null, 2));
-
-      // Backend response এর সম্ভাব্য shapes:
-      // Shape A: { success, data: { data: [], meta: {} } }       ← সবচেয়ে common
-      // Shape B: { success, data: { data: [], pagination: {} } }  ← bookings style
-      // Shape C: { success, data: [] }                            ← flat array
-      // Shape D: { data: [], meta: {} }                           ← wrapper ছাড়া
-
-      const outer = res?.data ?? res;
-
-      // ✅ Case 1: { data: [...], meta: {...} }
-      if (Array.isArray(outer?.data) && outer?.meta) {
-        return {
-          data: outer.data,
-          meta: outer.meta,
-        } as PaginatedResponse<Property>;
-      }
-
-      // ✅ Case 2: { data: [...], pagination: {...} } — pagination কে meta তে convert
-      if (Array.isArray(outer?.data) && outer?.pagination) {
-        return {
-          data: outer.data,
-          meta: {
-            total:      outer.pagination.total      ?? outer.data.length,
-            page:       outer.pagination.page       ?? 1,
-            limit:      outer.pagination.pageSize   ?? 10,
-            totalPages: outer.pagination.totalPages ?? 1,
-          },
-        } as PaginatedResponse<Property>;
-      }
-
-      // ✅ Case 3: outer নিজেই array
-      if (Array.isArray(outer)) {
-        return {
-          data: outer,
-          meta: { total: outer.length, page: 1, limit: outer.length, totalPages: 1 },
-        } as PaginatedResponse<Property>;
-      }
-
-      // ✅ Case 4: outer.data array কিন্তু meta/pagination নেই
-      if (Array.isArray(outer?.data)) {
-        return {
-          data: outer.data,
-          meta: { total: outer.data.length, page: 1, limit: outer.data.length, totalPages: 1 },
-        } as PaginatedResponse<Property>;
-      }
-
-      // Fallback
-      console.warn("⚠️ useOwnerProperties: unexpected response shape", res);
-      return {
-        data: [],
-        meta: { total: 0, page: 1, limit: 10, totalPages: 0 },
-      } as PaginatedResponse<Property>;
+      const res = await apiFetch<{ data: PaginatedResponse<Property> }>(
+        `/owner/properties?${q}`
+      );
+      return res.data; // Extract the `data` property
     },
     retry: 1,
-    staleTime: 30_000,
+    staleTime: 30000,
   });
 }
 
@@ -395,13 +335,6 @@ export function useDeleteProperty() {
     },
   });
 }
-
-
-
-
-
-
-
 
 // ─── BOOKINGS ─────────────────────────────────────────────────────────────────
 
@@ -868,6 +801,38 @@ export function useUpdateProperty() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["owner", "properties"] });
     },
+  });
+}
+
+// ─── AI DESCRIPTION ───────────────────────────────────────────────────────────
+
+export function useAIDescription(input: { title: string; type: PropertyType }) {
+  return useQuery<{ description: string }>({
+    queryKey: ["ai", "description", input],
+    queryFn: async () => {
+      const res = await apiFetch<{ description: string }>("/ai/description", {
+        method: "POST",
+        body: JSON.stringify(input),
+      });
+      return res; // Return the full response object
+    },
+    enabled: !!input.title && !!input.type,
+  });
+}
+
+// ─── AI PRICE HINT ────────────────────────────────────────────────────────────
+
+export function useAIPriceHint(input: { type: PropertyType; area: string; size: number }) {
+  return useQuery<{ priceHint: number }>({
+    queryKey: ["ai", "priceHint", input],
+    queryFn: async () => {
+      const res = await apiFetch<{ priceHint: number }>("/ai/price-hint", {
+        method: "POST",
+        body: JSON.stringify(input),
+      });
+      return res; // Return the full response object
+    },
+    enabled: !!input.type && !!input.area && !!input.size,
   });
 }
 

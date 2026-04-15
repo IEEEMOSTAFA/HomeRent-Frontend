@@ -102,7 +102,7 @@ export default function OwnerDashboardPage() {
                 <div>
                   <p className="text-sm font-medium text-foreground">{b.property.title}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {b.user.name} · Move in: {new Date(b.moveInDate).toLocaleDateString()}
+                    {b.user?.name || 'Unknown User'} · Move in: {new Date(b.moveInDate).toLocaleDateString()}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">

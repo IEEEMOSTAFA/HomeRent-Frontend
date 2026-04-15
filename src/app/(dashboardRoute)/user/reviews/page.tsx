@@ -78,10 +78,8 @@ function StarRow({ rating, size = 14 }: { rating: number; size?: number }) {
 function AnimNum({ to, decimals = 0 }: { to: number; decimals?: number }) {
   const ref  = useRef<HTMLSpanElement>(null);
   const inV  = useInView(ref, { once: true });
-  const [go, setGo] = useState(false);
-  useEffect(() => { if (inV) setGo(true); }, [inV]);
 
-  const sp = useRSpring({ val: go ? to : 0, config: rsConfig.gentle });
+  const sp = useRSpring({ val: inV ? to : 0, config: rsConfig.gentle });
   return (
     <span ref={ref}>
       <animated.span>

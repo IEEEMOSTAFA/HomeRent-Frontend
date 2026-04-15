@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL!;
   const url = req.nextUrl.pathname;
 
@@ -70,7 +70,7 @@ export async function middleware(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error("[Middleware] Error:", error);
+    console.error("[Proxy] Error:", error);
     return NextResponse.redirect(new URL("/login", req.url));
   }
 }
@@ -83,7 +83,6 @@ export const config = {
     "/booking/:path*",
   ],
 };
-
 
 
 

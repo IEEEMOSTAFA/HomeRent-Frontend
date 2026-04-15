@@ -8,5 +8,5 @@ export interface Notification {
   message: string;
   isRead: boolean;
   createdAt: string;
-  actionUrl?: string;
+  actionUrl?: string | null;
 }

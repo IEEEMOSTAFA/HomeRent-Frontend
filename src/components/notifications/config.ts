@@ -1,5 +1,5 @@
 import { Calendar, CreditCard, Star, Settings2 } from "lucide-react";
-import type { NotifType } from "./types";
+import type { NotifType, FilterTab } from "./types";
 
 export const TYPE_CONFIG: Record<
   NotifType,

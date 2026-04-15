@@ -1,4 +1,4 @@
-// src/app/(dashboardRoute)/user/_components/StatCard.tsx
+"use client";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";

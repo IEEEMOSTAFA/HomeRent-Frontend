@@ -1,87 +1,104 @@
 "use client";
-// src/components/user/UserSidebar.tsx
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  LayoutDashboard,
+  Building2,
+  Sparkles,
+  CalendarCheck,
+  CreditCard,
+  Star,
+  Bell,
+  User,
+  LogOut,
+} from "lucide-react";
+
 import { cn } from "@/lib/utils";
-// import { userRoutes } from "@/constants/userRoutes";
-import { Home, LogOut } from "lucide-react";
-import { authClient } from "@/lib/auth-client";
-import { useRouter } from "next/navigation";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { userRoutes } from "@/routes/userRoutes";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { useMyNotifications } from "@/hooks/user/useUserApi";
+import { RouteItem } from "@/routes/userRoutes";   // ← সঠিক পথ
 
-interface UserSidebarProps {
-  user: {
-    name: string;
-    email: string;
-    image?: string;
-  };
-}
+const ICON_MAP: Record<string, React.ReactNode> = {
+  "Dashboard":          <LayoutDashboard size={16} />,
+  "Browse Properties":  <Building2 size={16} />,
+  "AI Recommendations": <Sparkles size={16} />,
+  "My Bookings":        <CalendarCheck size={16} />,
+  "Payment History":    <CreditCard size={16} />,
+  "My Reviews":         <Star size={16} />,
+  "Notifications":      <Bell size={16} />,
+  "Profile":            <User size={16} />,
+};
 
-export function UserSidebar({ user }: UserSidebarProps) {
+export default function UserSidebar({ routes }: { routes: RouteItem[] }) {
   const pathname = usePathname();
-  const router = useRouter();
+  const { data: notificationsData, isLoading } = useMyNotifications();
 
-  const handleSignOut = async () => {
-    await authClient.signOut();
-    router.push("/sign-in");
-  };
+  const notifications = notificationsData ?? [];
+  const unread = notifications.filter((n) => !n.isRead).length;
 
   return (
-    <aside className="flex h-full w-64 flex-col border-r border-border bg-card">
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-background border-r flex flex-col z-40">
       {/* Brand */}
-      <div className="flex items-center gap-2 border-b border-border px-6 py-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-          <Home className="h-4 w-4 text-primary-foreground" />
+      <div className="px-5 py-4 flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
+          <Building2 size={15} className="text-white" />
         </div>
-        <span className="text-lg font-semibold tracking-tight">RentHome</span>
+        <div>
+          <p className="font-bold text-sm leading-tight">RentHome</p>
+          <p className="text-[10px] text-muted-foreground">Tenant Portal</p>
+        </div>
       </div>
 
+      <Separator />
+
       {/* Nav */}
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        {userRoutes.map((route) => {
-          const Icon = route.icon  ;
-          const isActive = pathname === route.url || pathname.startsWith(route.url + "/");
+      <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-0.5">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-2 mb-2">
+          Navigation
+        </p>
+        {routes.map((route) => {
+          const isActive =
+            pathname === route.url ||
+            (route.url !== "/user/dashboard" && pathname.startsWith(route.url));
+
           return (
-            <Link
-              key={route.url}
-              href={route.url}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
-                isActive
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {route.title}
+            <Link key={route.url} href={route.url}>
+              <Button
+                variant={isActive ? "secondary" : "ghost"}
+                className={cn(
+                  "w-full justify-start gap-2.5 h-9 text-sm font-medium",
+                  isActive
+                    ? "text-blue-700 bg-blue-50 hover:bg-blue-100"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <span className={isActive ? "text-blue-600" : "text-muted-foreground/70"}>
+                  {ICON_MAP[route.title] ?? <LayoutDashboard size={16} />}
+                </span>
+                {route.title}
+                {route.title === "Notifications" && unread > 0 && (
+                  <Badge className="ml-auto h-4 px-1.5 text-[10px] bg-blue-600 hover:bg-blue-600">
+                    {unread}
+                  </Badge>
+                )}
+              </Button>
             </Link>
           );
         })}
       </nav>
 
-      {/* User Footer */}
-      <div className="border-t border-border p-4">
-        <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={user.image} alt={user.name} />
-            <AvatarFallback className="text-xs">
-              {user.name?.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{user.name}</p>
-            <p className="truncate text-xs text-muted-foreground">{user.email}</p>
-          </div>
-          <button
-            onClick={handleSignOut}
-            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            title="Sign out"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
+      <Separator />
+
+      <div className="px-3 py-3">
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-2.5 text-sm text-destructive hover:text-destructive hover:bg-destructive/10"
+        >
+          <LogOut size={16} /> Sign Out
+        </Button>
       </div>
     </aside>
   );

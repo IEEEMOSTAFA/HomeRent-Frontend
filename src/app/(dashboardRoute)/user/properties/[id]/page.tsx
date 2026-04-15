@@ -19,8 +19,8 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
   // React Query দিয়ে data fetch করছি (সবচেয়ে ভালো প্র্যাকটিস)
   const { data: propertyResponse, isLoading, error } = usePublicProperty(id);
 
-  // Safe data extraction
-  const property = propertyResponse?.data || propertyResponse;
+  // propertyResponse is already typed as Property directly
+  const property = propertyResponse;
 
   if (isLoading) {
     return (
