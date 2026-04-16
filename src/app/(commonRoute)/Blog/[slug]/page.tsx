@@ -1,9 +1,10 @@
-
+"use client";
 import React from "react";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Calendar, Clock, User, ArrowLeft, Share2 } from "lucide-react";
 import { motion } from "framer-motion";
+import Link from "next/link";
 
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +31,6 @@ async function getBlog(slug: string): Promise<Blog | null> {
   try {
     const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/blog/${slug}`, {
       cache: "no-store",
-      next: { revalidate: 3600 }, // Optional: ISR fallback
     });
 
     if (!res.ok) return null;
@@ -43,11 +43,18 @@ async function getBlog(slug: string): Promise<Blog | null> {
   }
 }
 
-export default async function SingleBlogPage({ params }: { params: { slug: string } }) {
-  const blog = await getBlog(params.slug);
+// ✅ Fix 1: params এখন Promise
+export default async function SingleBlogPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  // ✅ Fix 2: await করো
+  const { slug } = await params;
+  const blog = await getBlog(slug);
 
   if (!blog) {
-    notFound(); // Uses Next.js built-in 404 page
+    notFound();
   }
 
   const formattedDate = blog.publishedAt
@@ -60,7 +67,6 @@ export default async function SingleBlogPage({ params }: { params: { slug: strin
 
   return (
     <article className="min-h-screen bg-background">
-      {/* Hero Image Section */}
       {blog.featuredImage && (
         <div className="relative h-[500px] w-full overflow-hidden">
           <Image
@@ -75,21 +81,19 @@ export default async function SingleBlogPage({ params }: { params: { slug: strin
       )}
 
       <div className="max-w-4xl mx-auto px-6 -mt-16 relative z-10 pb-20">
-        {/* Back Button */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
           <Button variant="ghost" asChild className="mb-8 -ml-2">
-            <a href="/blog" className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
+            <Link href="/blog" className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
               <ArrowLeft className="w-4 h-4" />
               Back to Blog
-            </a>
+            </Link>
           </Button>
         </motion.div>
 
-        {/* Category & Meta */}
         <div className="flex flex-wrap items-center gap-3 mb-6">
           {blog.category && (
             <Badge variant="secondary" className="text-sm px-4 py-1">
@@ -108,12 +112,10 @@ export default async function SingleBlogPage({ params }: { params: { slug: strin
           )}
         </div>
 
-        {/* Title */}
         <h1 className="text-5xl md:text-6xl font-bold tracking-tight leading-tight mb-10">
           {blog.title}
         </h1>
 
-        {/* Author Info */}
         {blog.author && (
           <div className="flex items-center gap-4 mb-12">
             <Avatar className="w-12 h-12 border-2 border-background">
@@ -126,8 +128,6 @@ export default async function SingleBlogPage({ params }: { params: { slug: strin
               <p className="font-semibold text-lg">{blog.author.name}</p>
               <p className="text-sm text-muted-foreground">Author</p>
             </div>
-
-            {/* Share Button */}
             <Button variant="outline" size="sm" className="ml-auto gap-2">
               <Share2 className="w-4 h-4" />
               Share
@@ -137,7 +137,6 @@ export default async function SingleBlogPage({ params }: { params: { slug: strin
 
         <Separator className="mb-12" />
 
-        {/* Blog Content */}
         <div
           className="prose prose-lg max-w-none dark:prose-invert 
                      prose-headings:font-semibold prose-headings:tracking-tight
@@ -145,8 +144,6 @@ export default async function SingleBlogPage({ params }: { params: { slug: strin
                      prose-img:rounded-xl prose-img:shadow-md"
           dangerouslySetInnerHTML={{ __html: blog.content }}
         />
-
-        {/* Optional: Related Articles / Footer CTA can be added here later */}
       </div>
     </article>
   );

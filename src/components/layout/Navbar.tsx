@@ -43,7 +43,7 @@ const publicMenu = [
   { title: "Home",       url: "/" },
   { title: "Properties", url: "/property" },
   { title: "About",      url: "/About" },
-  { title: "Blog",       url: "/Blog" },
+  { title: "Blog",       url: "/blog" },
 ];
 
 export function Navbar({ className }: { className?: string }) {

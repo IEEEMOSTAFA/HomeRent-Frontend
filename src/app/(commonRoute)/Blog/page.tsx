@@ -1,4 +1,4 @@
-
+""
 import React from "react";
 import BlogCard from "../_component/BlogCard";
 import { Card, CardContent } from "@/components/ui/card";
