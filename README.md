@@ -86,97 +86,156 @@ Result: Booking status → CONFIRMED ✅
 
 ---
 
-## 🌐 API Reference (Key Endpoints)
+## 🌐 API Reference
 
 ### 🔐 Authentication
-```http
-POST /api/auth/sign-up/email     → Register new user
-POST /api/auth/sign-in/email     → Login
-POST /api/auth/sign-out          → Logout
-GET  /api/auth/get-session       → Get current session
-```
 
-### 🏘️ Properties (Public)
-```http
-GET  /api/properties             → List all approved properties
-     Query: city, area, minRent, maxRent, bedrooms, sort, page
-
-GET  /api/properties/:id         → Single property details
-```
-
-### 🏠 Owner APIs
-```http
-POST   /api/owner/properties          → Create property listing
-GET    /api/owner/properties          → My listings
-PUT    /api/owner/properties/:id      → Update listing
-DELETE /api/owner/properties/:id      → Delete listing
-
-GET    /api/owner/bookings            → View all booking requests
-PATCH  /api/owner/bookings/:id        → Accept or decline booking
-```
-
-### 📅 Bookings (User)
-```http
-POST /api/bookings               → Create a booking request
-GET  /api/bookings               → View my bookings
-```
-
-### 💰 Payments (User)
-```http
-POST /api/payments/create-intent → Create Stripe payment intent
-POST /api/payments/confirm       → Confirm payment after Stripe
-```
-
-### ⭐ Reviews
-```http
-POST /api/reviews                → Submit review (1 per booking)
-```
-
-### 🔔 Notifications
-```http
-GET   /api/notifications             → Get all notifications
-PATCH /api/notifications/mark-all-read → Mark all as read
-```
-
-### 🛡️ Admin APIs
-```http
-GET   /api/admin/properties/pending         → Properties awaiting approval
-PATCH /api/admin/properties/:id/status      → Approve or reject property
-
-GET   /api/users                            → All users
-PATCH /api/users/:id/ban                    → Ban a user
-
-GET   /api/admin/payments                   → All payment records
-POST  /api/admin/payments/:id/refund        → Issue refund
-
-GET   /api/admin/analytics                  → Platform analytics dashboard
-```
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|:-------------:|
+| `POST` | `/api/auth/sign-up/email` | Register a new user (USER or OWNER) | ❌ |
+| `POST` | `/api/auth/sign-in/email` | Login and receive session cookie | ❌ |
+| `POST` | `/api/auth/sign-out` | Logout and clear session | ✅ |
+| `GET`  | `/api/auth/get-session` | Get current logged-in user info | ✅ |
 
 ---
 
-## 🧪 Step-by-Step Testing Guide (Postman / Frontend)
+### 🏘️ Properties — Public
 
-Follow this order to test the full lifecycle:
+| Method | Endpoint | Description | Query Params |
+|--------|----------|-------------|--------------|
+| `GET` | `/api/properties` | List all approved properties | `city`, `area`, `minRent`, `maxRent`, `bedrooms`, `sort`, `page` |
+| `GET` | `/api/properties/:id` | Get single property details | — |
 
-```
-1.  Register as OWNER        → POST /api/auth/sign-up/email
-2.  Login as OWNER           → POST /api/auth/sign-in/email
-3.  Create a property        → POST /api/owner/properties
-4.  Login as ADMIN           → POST /api/auth/sign-in/email
-5.  Approve the property     → PATCH /api/admin/properties/:id/status
-6.  Login as USER            → POST /api/auth/sign-in/email
-7.  Browse properties        → GET /api/properties
-8.  View property details    → GET /api/properties/:id
-9.  Create a booking         → POST /api/bookings
-10. Login as OWNER           → POST /api/auth/sign-in/email
-11. Accept the booking       → PATCH /api/owner/bookings/:id
-12. Login as USER            → POST /api/auth/sign-in/email
-13. Create payment intent    → POST /api/payments/create-intent
-14. Confirm payment          → POST /api/payments/confirm
-15. Submit a review          → POST /api/reviews
-16. Check notifications      → GET /api/notifications
-17. Login as ADMIN           → Check analytics dashboard
-```
+---
+
+### 🏠 Owner APIs
+
+> 🔒 Requires login as **OWNER**
+
+#### Property Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST`   | `/api/owner/properties`       | Create a new property listing |
+| `GET`    | `/api/owner/properties`       | Get all my listed properties  |
+| `PUT`    | `/api/owner/properties/:id`   | Update an existing listing    |
+| `DELETE` | `/api/owner/properties/:id`   | Delete a property listing     |
+
+#### Booking Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET`   | `/api/owner/bookings`     | View all booking requests for my properties |
+| `PATCH` | `/api/owner/bookings/:id` | Accept or decline a booking request         |
+
+#### Profile
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET`   | `/api/owner/profile` | View owner profile   |
+| `PATCH` | `/api/owner/profile` | Update owner profile |
+
+---
+
+### 📅 Bookings — User
+
+> 🔒 Requires login as **USER**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/bookings` | Create a new booking request (status: `PENDING`) |
+| `GET`  | `/api/bookings` | View all my bookings and their statuses          |
+
+---
+
+### 💰 Payments — User
+
+> 🔒 Requires login as **USER** · Booking must be in `ACCEPTED` status
+
+| Method | Endpoint | Description | Notes |
+|--------|----------|-------------|-------|
+| `POST` | `/api/payments/create-intent` | Create a Stripe payment intent | Returns `clientSecret` + `paymentId` |
+| `POST` | `/api/payments/confirm`       | Confirm payment after Stripe UI | Booking moves to `CONFIRMED` |
+
+---
+
+### ⭐ Reviews
+
+> 🔒 Requires login as **USER** · Booking must be `CONFIRMED`
+
+| Method | Endpoint | Description | Notes |
+|--------|----------|-------------|-------|
+| `POST` | `/api/reviews` | Submit a review for a completed booking | One review per booking only |
+
+---
+
+### 🔔 Notifications
+
+> 🔒 Requires login (any role)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET`   | `/api/notifications`               | Get all my notifications       |
+| `PATCH` | `/api/notifications/mark-all-read` | Mark all notifications as read |
+
+---
+
+### 🛡️ Admin APIs
+
+> 🔒 Requires login as **ADMIN**
+
+#### Property Moderation
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET`   | `/api/admin/properties/pending`    | List all properties awaiting approval |
+| `PATCH` | `/api/admin/properties/:id/status` | Approve or reject a property          |
+
+#### User Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET`   | `/api/users`         | Get all registered users |
+| `PATCH` | `/api/users/:id/ban` | Ban or unban a user      |
+
+#### Payment Oversight
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET`  | `/api/admin/payments`            | View all payment records |
+| `POST` | `/api/admin/payments/:id/refund` | Issue a refund           |
+
+#### Analytics
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/admin/analytics` | Platform-wide stats and analytics dashboard |
+
+---
+
+## 🧪 Step-by-Step Testing Guide
+
+Follow this exact order to test the complete lifecycle end-to-end:
+
+| Step | Role | Action | API |
+|:----:|------|--------|-----|
+| 1  | —     | Register as OWNER        | `POST /api/auth/sign-up/email` |
+| 2  | OWNER | Login                    | `POST /api/auth/sign-in/email` |
+| 3  | OWNER | Create a property        | `POST /api/owner/properties` |
+| 4  | —     | Login as ADMIN           | `POST /api/auth/sign-in/email` |
+| 5  | ADMIN | Approve the property     | `PATCH /api/admin/properties/:id/status` |
+| 6  | —     | Login as USER            | `POST /api/auth/sign-in/email` |
+| 7  | USER  | Browse properties        | `GET /api/properties` |
+| 8  | USER  | View property details    | `GET /api/properties/:id` |
+| 9  | USER  | Create a booking         | `POST /api/bookings` |
+| 10 | —     | Login as OWNER           | `POST /api/auth/sign-in/email` |
+| 11 | OWNER | Accept the booking       | `PATCH /api/owner/bookings/:id` |
+| 12 | —     | Login as USER            | `POST /api/auth/sign-in/email` |
+| 13 | USER  | Create payment intent    | `POST /api/payments/create-intent` |
+| 14 | USER  | Confirm payment          | `POST /api/payments/confirm` |
+| 15 | USER  | Submit a review          | `POST /api/reviews` |
+| 16 | USER  | Check notifications      | `GET /api/notifications` |
+| 17 | ADMIN | View analytics dashboard | `GET /api/admin/analytics` |
 
 ---
 
