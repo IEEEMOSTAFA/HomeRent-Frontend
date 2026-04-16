@@ -1,15 +1,17 @@
-"use client";
+// app/blog/[slug]/page.tsx
+// ❌ "use client" নাই — এটা Server Component
 import React from "react";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { Calendar, Clock, User, ArrowLeft, Share2 } from "lucide-react";
-import { motion } from "framer-motion";
+import { Calendar, Clock, User, Share2 } from "lucide-react";
 import Link from "next/link";
 
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import BackButton from "../../_component/BackButton";
+// import BackButton from "../_component/BackButton"; // ✅ client part আলাদা
 
 interface Blog {
   id: string;
@@ -29,12 +31,11 @@ interface Blog {
 
 async function getBlog(slug: string): Promise<Blog | null> {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/blog/${slug}`, {
-      cache: "no-store",
-    });
-
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/blog/${slug}`,
+      { cache: "no-store" }
+    );
     if (!res.ok) return null;
-
     const { data } = await res.json();
     return data;
   } catch (error) {
@@ -43,19 +44,15 @@ async function getBlog(slug: string): Promise<Blog | null> {
   }
 }
 
-// ✅ Fix 1: params এখন Promise
 export default async function SingleBlogPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  // ✅ Fix 2: await করো
   const { slug } = await params;
   const blog = await getBlog(slug);
 
-  if (!blog) {
-    notFound();
-  }
+  if (!blog) notFound();
 
   const formattedDate = blog.publishedAt
     ? new Intl.DateTimeFormat("en-US", {
@@ -81,18 +78,9 @@ export default async function SingleBlogPage({
       )}
 
       <div className="max-w-4xl mx-auto px-6 -mt-16 relative z-10 pb-20">
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
-          <Button variant="ghost" asChild className="mb-8 -ml-2">
-            <Link href="/blog" className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="w-4 h-4" />
-              Back to Blog
-            </Link>
-          </Button>
-        </motion.div>
+        
+        {/* ✅ Client Component — motion এখানে */}
+        <BackButton />
 
         <div className="flex flex-wrap items-center gap-3 mb-6">
           {blog.category && (
