@@ -17,6 +17,7 @@ export const adminRoutes: RouteItem[] = [
 
   // ── Property Moderation ───────────────────────────────────
   { title: "Pending Properties",   url: "/admin/properties/pending" },// GET /api/admin/properties/pending
+
   { title: "All Properties",       url: "/admin/properties" },        // via /api/properties (admin view)
 
   // ── Bookings & Payments ───────────────────────────────────
