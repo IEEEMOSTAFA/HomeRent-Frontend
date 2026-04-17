@@ -38,7 +38,6 @@ async function getBlogs(): Promise<Blog[]> {
     return [];
   }
 }
-
 export default async function BlogListingPage() {
   const blogs = await getBlogs();
 
