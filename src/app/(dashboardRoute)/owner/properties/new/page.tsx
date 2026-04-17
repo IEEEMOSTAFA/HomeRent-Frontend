@@ -58,21 +58,20 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-// ── Image upload state type ────────────────────────────────────────────────────
 interface ImageItem {
-  url: string;       // Cloudinary URL (upload শেষ হলে আসে)
-  preview: string;   // Local blob URL (preview এর জন্য)
+  url:       string;
+  preview:   string;
   uploading: boolean;
-  error?: string;
+  error?:    string;
 }
 
 const PROPERTY_TYPES: { value: PropertyType; label: string }[] = [
-  { value: "FAMILY_FLAT",    label: "Family Flat"    },
-  { value: "BACHELOR_ROOM",  label: "Bachelor Room"  },
-  { value: "SUBLET",         label: "Sublet"         },
-  { value: "HOSTEL",         label: "Hostel"         },
-  { value: "OFFICE_SPACE",   label: "Office Space"   },
-  { value: "COMMERCIAL",     label: "Commercial"     },
+  { value: "FAMILY_FLAT",   label: "Family Flat"   },
+  { value: "BACHELOR_ROOM", label: "Bachelor Room" },
+  { value: "SUBLET",        label: "Sublet"        },
+  { value: "HOSTEL",        label: "Hostel"        },
+  { value: "OFFICE_SPACE",  label: "Office Space"  },
+  { value: "COMMERCIAL",    label: "Commercial"    },
 ];
 
 const AVAILABLE_FOR: { value: AvailableFor; label: string }[] = [
@@ -82,40 +81,22 @@ const AVAILABLE_FOR: { value: AvailableFor; label: string }[] = [
   { value: "ANY",       label: "Anyone"    },
 ];
 
-// ── Section wrapper ────────────────────────────────────────────────────────────
-function Section({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: React.ReactNode;
+function Section({ title, description, children }: {
+  title: string; description?: string; children: React.ReactNode;
 }) {
   return (
     <Card className="border border-border/60 shadow-none">
       <CardHeader className="pb-3">
         <CardTitle className="text-base font-semibold">{title}</CardTitle>
-        {description && (
-          <CardDescription className="text-xs">{description}</CardDescription>
-        )}
+        {description && <CardDescription className="text-xs">{description}</CardDescription>}
       </CardHeader>
       <CardContent className="space-y-4">{children}</CardContent>
     </Card>
   );
 }
 
-// ── Field wrapper ──────────────────────────────────────────────────────────────
-function Field({
-  label,
-  error,
-  children,
-  required,
-}: {
-  label: string;
-  error?: string;
-  children: React.ReactNode;
-  required?: boolean;
+function Field({ label, error, children, required }: {
+  label: string; error?: string; children: React.ReactNode; required?: boolean;
 }) {
   return (
     <div className="space-y-1.5">
@@ -129,37 +110,49 @@ function Field({
   );
 }
 
-// ── Backend এ image upload করার function ──────────────────────────────────────
-// আপনার backend এ POST /api/images/upload-multiple endpoint আছে
-// সেটা ব্যবহার করে Cloudinary URL পাবো
-async function uploadImageToBackend(file: File): Promise<string> {
+// ── Image Upload ───────────────────────────────────────────────────────────────
+// Admin এর blog image upload এর exact same pattern:
+//   endpoint : POST /api/images/upload  (single)
+//   field    : "image"   ← backend handleSingleUpload middleware এটাই চায়
+//   cookie   : credentials:"include"   ← auth cookie automatically যাবে
+//   header   : Content-Type দেওয়া যাবে না — browser নিজে multipart set করে
+//
+async function uploadSingleImage(file: File): Promise<string> {
   const formData = new FormData();
-  formData.append("images", file); // backend এ "images" field name
+  formData.append("image", file); // ✅ "image" — backend middleware এটাই expect করে
 
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/images/upload-multiple`,
-    {
-      method: "POST",
-      body: formData,
-      credentials: "include",
-    }
-  );
+  const base = (
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    ""
+  ).replace(/\/$/, "");
+
+  const res = await fetch(`${base}/api/images/upload`, {
+    method:      "POST",
+    body:        formData,
+    credentials: "include", // ✅ cookie পাঠাবে — auth হবে
+  });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.message || "Image upload failed");
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData?.message ?? `Upload failed (${res.status})`);
   }
 
   const data = await res.json();
 
-  // Backend response: { data: { urls: [...] } }
+  // Backend response থেকে URL বের করো (সব possible shape handle করা হলো)
   const url: string =
+    data?.data?.url ??
     data?.data?.urls?.[0] ??
-    data?.urls?.[0] ??
-    data?.data?.[0] ??
+    (typeof data?.data === "string" ? data.data : null) ??
+    data?.url ??
     null;
 
-  if (!url) throw new Error("Cloudinary URL পাওয়া যায়নি");
+  if (!url) {
+    console.error("Unexpected upload response:", data);
+    throw new Error("Cloudinary URL পাওয়া যায়নি");
+  }
+
   return url;
 }
 
@@ -168,129 +161,98 @@ export default function AddPropertyPage() {
   const router = useRouter();
   const { mutateAsync: createProperty, isPending } = useCreateProperty();
 
-  // ── Image state ──────────────────────────────────────────────────────────────
   const [images, setImages] = useState<ImageItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      isNegotiable: false,
-      bedrooms:     1,
-      bathrooms:    1,
-      advanceDeposit: 0,
-      bookingFee:     0,
-    },
-  });
+  const { register, handleSubmit, setValue, watch, formState: { errors } } =
+    useForm<FormValues>({
+      resolver: zodResolver(schema),
+      defaultValues: {
+        isNegotiable:   false,
+        bedrooms:       1,
+        bathrooms:      1,
+        advanceDeposit: 0,
+        bookingFee:     0,
+      },
+    });
 
   const isNegotiable = watch("isNegotiable");
 
-  // ── ছবি select হলে এই function চলবে ─────────────────────────────────────────
+  // ── File select হলে ───────────────────────────────────────────────────────────
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    if (files.length === 0) return;
+    if (!files.length) return;
 
-    // সর্বোচ্চ ১০টা ছবি
     const remaining = 10 - images.length;
-    const toUpload = files.slice(0, remaining);
+    const toUpload  = files.slice(0, remaining);
 
-    if (files.length > remaining) {
-      toast.warning(`সর্বোচ্চ ১০টা ছবি দেওয়া যাবে। প্রথম ${remaining}টা নেওয়া হয়েছে।`);
-    }
+    if (files.length > remaining)
+      toast.warning(`সর্বোচ্চ ১০টা ছবি। প্রথম ${remaining}টা নেওয়া হয়েছে।`);
 
-    // প্রতিটা file এর জন্য preview তৈরি করো এবং uploading state set করো
-    const newItems: ImageItem[] = toUpload.map((file) => ({
-      url: "",
-      preview: URL.createObjectURL(file),
-      uploading: true,
+    const startIdx = images.length;
+    const newItems: ImageItem[] = toUpload.map((f) => ({
+      url: "", preview: URL.createObjectURL(f), uploading: true,
     }));
 
     setImages((prev) => [...prev, ...newItems]);
 
-    // প্রতিটা file আলাদাভাবে backend এ upload করো
+    // প্রতিটা ছবি আলাদাভাবে upload
     toUpload.forEach(async (file, i) => {
-      const insertIdx = images.length + i;
+      const idx = startIdx + i;
       try {
-        const cloudinaryUrl = await uploadImageToBackend(file);
-
+        const cloudUrl = await uploadSingleImage(file);
         setImages((prev) =>
-          prev.map((img, idx) =>
-            idx === insertIdx
-              ? { ...img, url: cloudinaryUrl, uploading: false }
-              : img
+          prev.map((img, j) =>
+            j === idx ? { ...img, url: cloudUrl, uploading: false } : img
           )
         );
-        toast.success(`ছবি ${i + 1} upload সফল হয়েছে!`);
+        toast.success(`ছবি ${i + 1} upload সফল ✅`);
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Upload failed";
+        const msg = err instanceof Error ? err.message : "Upload failed";
         setImages((prev) =>
-          prev.map((img, idx) =>
-            idx === insertIdx
-              ? { ...img, uploading: false, error: message }
-              : img
+          prev.map((img, j) =>
+            j === idx ? { ...img, uploading: false, error: msg } : img
           )
         );
-        toast.error(`ছবি ${i + 1} upload হয়নি: ${message}`);
+        toast.error(`ছবি ${i + 1} upload হয়নি: ${msg}`);
       }
     });
 
-    // Input reset করো যাতে একই ছবি আবার select করা যায়
-    e.target.value = "";
+    e.target.value = ""; // reset input
   };
 
-  // ── ছবি remove করো ───────────────────────────────────────────────────────────
   const removeImage = (idx: number) => {
     setImages((prev) => {
-      const updated = [...prev];
-      // blob URL revoke করো memory leak এড়াতে
-      URL.revokeObjectURL(updated[idx].preview);
-      updated.splice(idx, 1);
-      return updated;
+      const next = [...prev];
+      URL.revokeObjectURL(next[idx].preview);
+      next.splice(idx, 1);
+      return next;
     });
   };
 
-  // ── Submit ───────────────────────────────────────────────────────────────────
   const onSubmit = async (values: FormValues) => {
-    // Upload হওয়া ছবির URL গুলো নাও
-    const validImages = images
-      .filter((img) => img.url && !img.uploading && !img.error)
-      .map((img) => img.url);
-
-    // কোনো ছবি এখনো uploading এ থাকলে wait করতে বলো
-    const stillUploading = images.some((img) => img.uploading);
-    if (stillUploading) {
+    if (images.some((img) => img.uploading)) {
       toast.warning("কিছু ছবি এখনো upload হচ্ছে। একটু অপেক্ষা করুন।");
       return;
     }
 
-    const payload: CreatePropertyInput = {
-      ...values,
-      images: validImages,
-    };
+    const validImages = images
+      .filter((img) => img.url && !img.error)
+      .map((img) => img.url);
 
     try {
-      await createProperty(payload);
+      await createProperty({ ...values, images: validImages } as CreatePropertyInput);
       toast.success("🎉 Property submitted! Admin approval এর জন্য অপেক্ষা করুন।");
       router.push("/owner/properties");
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Property add করতে সমস্যা হয়েছে।";
-      toast.error(message);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Property add করতে সমস্যা হয়েছে।");
     }
   };
 
-  // ── UI ───────────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
 
-        {/* Header */}
         <div className="flex items-center gap-3">
           <Link href="/owner/properties">
             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -298,7 +260,7 @@ export default function AddPropertyPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Add New Property</h1>
+            <h1 className="text-2xl font-bold">Add New Property</h1>
             <p className="text-sm text-muted-foreground">
               সব তথ্য পূরণ করুন। Admin review করার পর property publish হবে।
             </p>
@@ -307,58 +269,35 @@ export default function AddPropertyPage() {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
 
-          {/* ── Basic Info ─────────────────────────────────────────────────── */}
+          {/* Basic Info */}
           <Section title="Basic Information" description="Property এর মূল তথ্য">
             <Field label="Property Title" error={errors.title?.message} required>
-              <Input
-                {...register("title")}
-                placeholder="e.g. Spacious 3-bedroom flat in Agrabad"
-              />
+              <Input {...register("title")} placeholder="e.g. Spacious 3-bedroom flat in Agrabad" />
             </Field>
-
             <Field label="Description" error={errors.description?.message} required>
-              <Textarea
-                {...register("description")}
-                placeholder="Property সম্পর্কে বিস্তারিত লিখুন…"
-                rows={4}
-                className="resize-none"
-              />
+              <Textarea {...register("description")} placeholder="Property সম্পর্কে বিস্তারিত লিখুন…" rows={4} className="resize-none" />
             </Field>
-
             <div className="grid grid-cols-2 gap-4">
               <Field label="Property Type" error={errors.type?.message} required>
                 <Select onValueChange={(v) => setValue("type", v as PropertyType)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                   <SelectContent>
-                    {PROPERTY_TYPES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
+                    {PROPERTY_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </Field>
-
               <Field label="Available For" error={errors.availableFor?.message} required>
                 <Select onValueChange={(v) => setValue("availableFor", v as AvailableFor)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select tenant type" />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select tenant type" /></SelectTrigger>
                   <SelectContent>
-                    {AVAILABLE_FOR.map((a) => (
-                      <SelectItem key={a.value} value={a.value}>
-                        {a.label}
-                      </SelectItem>
-                    ))}
+                    {AVAILABLE_FOR.map((a) => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </Field>
             </div>
           </Section>
 
-          {/* ── Location ───────────────────────────────────────────────────── */}
+          {/* Location */}
           <Section title="Location" description="Property এর ঠিকানা">
             <div className="grid grid-cols-2 gap-4">
               <Field label="City" error={errors.city?.message} required>
@@ -373,7 +312,7 @@ export default function AddPropertyPage() {
             </Field>
           </Section>
 
-          {/* ── Details ────────────────────────────────────────────────────── */}
+          {/* Details */}
           <Section title="Property Details">
             <div className="grid grid-cols-3 gap-4">
               <Field label="Bedrooms" error={errors.bedrooms?.message} required>
@@ -386,13 +325,12 @@ export default function AddPropertyPage() {
                 <Input {...register("size")} type="number" min={0} placeholder="Optional" />
               </Field>
             </div>
-
             <Field label="Available From" error={errors.availableFrom?.message} required>
               <Input {...register("availableFrom")} type="date" />
             </Field>
           </Section>
 
-          {/* ── Pricing ────────────────────────────────────────────────────── */}
+          {/* Pricing */}
           <Section title="Pricing" description="মাসিক ভাড়া ও অন্যান্য চার্জ">
             <div className="grid grid-cols-3 gap-4">
               <Field label="Rent / Month (৳)" error={errors.rentAmount?.message} required>
@@ -405,13 +343,8 @@ export default function AddPropertyPage() {
                 <Input {...register("bookingFee")} type="number" min={0} />
               </Field>
             </div>
-
             <div className="flex items-center gap-3 pt-1">
-              <Switch
-                id="negotiable"
-                checked={isNegotiable}
-                onCheckedChange={(v) => setValue("isNegotiable", v)}
-              />
+              <Switch id="negotiable" checked={isNegotiable} onCheckedChange={(v) => setValue("isNegotiable", v)} />
               <Label htmlFor="negotiable" className="cursor-pointer text-sm">
                 Rent negotiable (ভাড়া আলোচনা সাপেক্ষ)
               </Label>
@@ -421,7 +354,7 @@ export default function AddPropertyPage() {
           {/* ── Images ─────────────────────────────────────────────────────── */}
           <Section
             title="Property Images"
-            description="ছবিতে click করুন বা নিচের বাটন চাপুন। ছবি auto Cloudinary-তে upload হবে।"
+            description="Box এ click করুন → PC থেকে ছবি select করুন → auto Cloudinary upload হবে"
           >
             {/* Hidden file input */}
             <input
@@ -433,117 +366,84 @@ export default function AddPropertyPage() {
               onChange={handleFileChange}
             />
 
-            {/* Image preview grid */}
             <div className="grid grid-cols-3 gap-3">
               {images.map((img, idx) => (
-                <div
-                  key={idx}
-                  className="relative aspect-video rounded-lg overflow-hidden border border-border bg-muted"
-                >
-                  {/* Preview image */}
-                  <Image
-                    src={img.preview}
-                    alt={`Property image ${idx + 1}`}
-                    fill
-                    className="object-cover"
-                  />
+                <div key={idx} className="relative aspect-video rounded-lg overflow-hidden border border-border bg-muted">
+                  <Image src={img.preview} alt={`img-${idx}`} fill className="object-cover" />
 
-                  {/* Uploading overlay */}
+                  {/* Uploading */}
                   {img.uploading && (
-                    <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-1">
+                    <div className="absolute inset-0 bg-black/55 flex flex-col items-center justify-center gap-1">
                       <Loader2 size={20} className="text-white animate-spin" />
                       <span className="text-white text-[10px]">Uploading…</span>
                     </div>
                   )}
 
-                  {/* Error overlay */}
-                  {img.error && (
-                    <div className="absolute inset-0 bg-destructive/70 flex flex-col items-center justify-center gap-1 p-2">
-                      <X size={16} className="text-white" />
-                      <span className="text-white text-[10px] text-center">
-                        Failed
-                      </span>
+                  {/* Error */}
+                  {!img.uploading && img.error && (
+                    <div className="absolute inset-0 bg-destructive/75 flex items-center justify-center">
+                      <span className="text-white text-[10px] font-medium">Failed ✗</span>
                     </div>
                   )}
 
-                  {/* Success tick */}
+                  {/* Success */}
                   {!img.uploading && !img.error && img.url && (
-                    <div className="absolute top-1 left-1 bg-emerald-500 rounded-full w-4 h-4 flex items-center justify-center">
-                      <span className="text-white text-[9px] font-bold">✓</span>
+                    <div className="absolute top-1 left-1 bg-emerald-500 rounded-full w-5 h-5 flex items-center justify-center shadow">
+                      <span className="text-white text-[10px] font-bold">✓</span>
                     </div>
                   )}
 
-                  {/* Remove button */}
+                  {/* Remove */}
                   <button
                     type="button"
                     onClick={() => removeImage(idx)}
-                    className="absolute top-1 right-1 bg-black/60 hover:bg-destructive rounded-full w-5 h-5 flex items-center justify-center transition-colors"
+                    className="absolute top-1 right-1 bg-black/60 hover:bg-red-600 rounded-full w-5 h-5 flex items-center justify-center transition-colors"
                   >
                     <X size={10} className="text-white" />
                   </button>
                 </div>
               ))}
 
-              {/* Add image box — ক্লিক করলে file picker খুলবে */}
+              {/* Add box */}
               {images.length < 10 && (
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="aspect-video rounded-lg border-2 border-dashed border-border hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 flex flex-col items-center justify-center gap-2 transition-colors cursor-pointer"
+                  className="aspect-video rounded-lg border-2 border-dashed border-border hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 flex flex-col items-center justify-center gap-2 transition-colors"
                 >
                   <ImagePlus size={22} className="text-muted-foreground" />
-                  <span className="text-[11px] text-muted-foreground text-center px-2">
-                    Click to add image
-                  </span>
+                  <span className="text-[11px] text-muted-foreground">Click করুন</span>
                 </button>
               )}
             </div>
 
-            {/* Info text */}
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
-              <span>JPG, PNG, WebP সাপোর্টেড • সর্বোচ্চ ১০MB প্রতিটি</span>
-              <span>{images.length}/10 ছবি</span>
+            <div className="flex justify-between text-[11px] text-muted-foreground pt-1">
+              <span>JPG, PNG, WebP • max 10MB</span>
+              <span>{images.filter(i => i.url).length}/{images.length} uploaded • max ১০টা</span>
             </div>
 
-            {/* Add more button */}
             {images.length > 0 && images.length < 10 && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="gap-1.5 text-xs"
-                onClick={() => fileInputRef.current?.click()}
-              >
+              <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs"
+                onClick={() => fileInputRef.current?.click()}>
                 <Plus size={12} /> আরও ছবি যোগ করুন
               </Button>
             )}
           </Section>
 
-          {/* ── Submit ─────────────────────────────────────────────────────── */}
+          {/* Submit */}
           <div className="flex gap-3 pt-2">
             <Link href="/owner/properties" className="flex-1">
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                disabled={isPending}
-              >
-                Cancel
-              </Button>
+              <Button type="button" variant="outline" className="w-full" disabled={isPending}>Cancel</Button>
             </Link>
             <Button
               type="submit"
               disabled={isPending || images.some((img) => img.uploading)}
               className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
             >
-              {isPending ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" />
-                  Submitting…
-                </>
-              ) : (
-                "Submit Property"
-              )}
+              {isPending
+                ? <><Loader2 size={14} className="animate-spin" /> Submitting…</>
+                : "Submit Property"
+              }
             </Button>
           </div>
 
