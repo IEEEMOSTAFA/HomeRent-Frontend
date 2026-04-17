@@ -1,5 +1,4 @@
-// app/blog/[slug]/page.tsx
-// ❌ "use client" নাই — এটা Server Component
+
 import React from "react";
 import Image from "next/image";
 import { notFound } from "next/navigation";
@@ -11,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import BackButton from "../../_component/BackButton";
+// import BackButton from "../../_component/BackButton";
 // import BackButton from "../_component/BackButton"; // ✅ client part আলাদা
 
 interface Blog {

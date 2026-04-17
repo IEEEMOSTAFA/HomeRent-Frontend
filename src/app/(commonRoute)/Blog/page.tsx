@@ -1,9 +1,10 @@
-""
+// "use client";
 import React from "react";
 import BlogCard from "../_component/BlogCard";
-import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, BookOpen } from "lucide-react";
+import { BookOpen } from "lucide-react";
+
+
+
 
 interface Blog {
   id: string;
@@ -94,3 +95,50 @@ export default async function BlogListingPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

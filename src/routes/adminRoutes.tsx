@@ -27,7 +27,7 @@ export const adminRoutes: RouteItem[] = [
   { title: "Flagged Reviews",      url: "/admin/reviews/flagged" },   // GET /api/admin/reviews/flagged
 
   // ── Blog ──────────────────────────────────────────────────
-  { title: "Blog Posts",           url: "/admin/blog" },              // GET /api/admin/blog
+  { title: "Blog Posts",           url: "/admin/blog" }             // GET /api/admin/blog
 ];
 
 

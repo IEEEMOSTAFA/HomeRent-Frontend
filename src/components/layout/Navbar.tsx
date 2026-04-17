@@ -1,6 +1,3 @@
-// Test data::
-
-// src/components/layout/Navbar.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -216,31 +213,6 @@ export function Navbar({ className }: { className?: string }) {
     </section>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
