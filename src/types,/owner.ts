@@ -278,23 +278,3 @@ export interface AiPriceHintResponse {
   marketAverage: number;        // Database থেকে similar properties-এর average
   reasoning?: string;           // AI-এর explanation
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
