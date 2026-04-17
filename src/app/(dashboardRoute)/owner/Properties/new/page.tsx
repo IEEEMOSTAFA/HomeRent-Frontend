@@ -1,7 +1,6 @@
 "use client";
 
-// ✅ FILE PATH: src/app/(ownerRoute)/owner/properties/new/page.tsx
-// এই file টি আগে ছিল না — নতুন তৈরি করা হয়েছে
+
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
