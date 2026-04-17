@@ -3,9 +3,6 @@ import React from "react";
 import BlogCard from "../_component/BlogCard";
 import { BookOpen } from "lucide-react";
 
-
-
-
 interface Blog {
   id: string;
   title: string;
@@ -95,50 +92,3 @@ export default async function BlogListingPage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
